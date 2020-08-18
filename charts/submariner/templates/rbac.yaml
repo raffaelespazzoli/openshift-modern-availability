@@ -1,0 +1,140 @@
+{{- if .Values.rbac.create -}}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ template "submariner.fullname" . }}:engine
+  labels:
+    heritage: {{ .Release.Service | quote }}
+    release: {{ .Release.Name | quote }}
+    chart: {{ template "submariner.chart" . }}
+    app: {{ template "submariner.name" . }}
+rules:
+- apiGroups: [""]
+  resources: ["configmaps"]
+  verbs: ["create", "get", "list", "watch", "patch", "update"]
+- apiGroups: ["submariner.io"]
+  resources: ["clusters", "endpoints", "gateways"]
+  verbs: ["create", "get", "list", "watch", "patch", "update", "delete"]
+- apiGroups: [""]
+  resources: ["events"]
+  verbs: ["create", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ template "submariner.fullname" . }}:routeagent
+  labels:
+    heritage: {{ .Release.Service | quote }}
+    release: {{ .Release.Name | quote }}
+    chart: {{ template "submariner.chart" . }}
+    app: {{ template "submariner.name" . }}
+rules:
+- apiGroups: ["submariner.io"]
+  resources: ["clusters", "endpoints", "gateways"]
+  verbs: ["create", "get", "list", "watch", "patch", "update"]
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "watch", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ template "submariner.fullname" . }}:engine
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ template "submariner.fullname" . }}:engine
+subjects:
+- kind: ServiceAccount
+  name: {{ template "submariner.engineServiceAccountName" . }}
+  namespace: {{ .Release.Namespace }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ template "submariner.fullname" . }}:routeagent
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ template "submariner.fullname" . }}:routeagent
+subjects:
+- kind: ServiceAccount
+  name: {{ template "submariner.routeAgentServiceAccountName" . }}
+  namespace: {{ .Release.Namespace }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ template "submariner.fullname" . }}:routeagent
+rules:
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["get", "update"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ template "submariner.fullname" . }}:routeagent
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ template "submariner.fullname" . }}:routeagent
+subjects:
+  - kind: ServiceAccount
+    name: {{ template "submariner.routeAgentServiceAccountName" . }}
+    namespace: {{ .Release.Namespace }}
+---
+{{- if ne .Values.submariner.globalCidr "" }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ template "submariner.fullname" . }}:globalnet
+rules:
+- apiGroups: [""]
+  resources: ["services", "namespaces", "pods", "nodes"]
+  verbs: ["get", "list", "watch", "update"]
+- apiGroups: ["submariner.io"]
+  resources: ["clusters", "endpoints", "gateways"]
+  verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ template "submariner.fullname" . }}:globalnet
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ template "submariner.fullname" . }}:globalnet
+subjects:
+- kind: ServiceAccount
+  name: {{ template "submariner.globalnetServiceAccountName" . }}
+  namespace: {{ .Release.Namespace }}
+---
+{{- end -}}
+{{- if .Values.submariner.serviceDiscovery }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ template "submariner.fullname" . }}:lighthouse
+rules:
+  - apiGroups: [""]
+    resources: ["services", "namespaces", "configmaps"]
+    verbs: ["get", "list", "watch", "update"]
+  - apiGroups: ["lighthouse.submariner.io"]
+    resources: ["*"]
+    verbs: ["create", "get", "list", "watch", "update", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ template "submariner.fullname" . }}:lighthouse
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ template "submariner.fullname" . }}:lighthouse
+subjects:
+  - kind: ServiceAccount
+    name: {{ template "submariner.lighthouseServiceAccountName" . }}
+    namespace: {{ .Release.Namespace }}
+{{- end -}}
+{{- end -}}

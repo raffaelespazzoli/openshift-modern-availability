@@ -1,0 +1,76 @@
+{{- if .Values.crd.create -}}
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: clusters.submariner.io
+  annotations:
+    "helm.sh/hook": crd-install
+spec:
+  group: submariner.io
+  version: v1
+  names:
+    kind: Cluster
+    plural: clusters
+  scope: Namespaced
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: endpoints.submariner.io
+  annotations:
+    "helm.sh/hook": crd-install
+spec:
+  group: submariner.io
+  version: v1
+  names:
+    kind: Endpoint
+    plural: endpoints
+  scope: Namespaced
+---
+{{- if .Values.submariner.serviceDiscovery }}
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: multiclusterservices.lighthouse.submariner.io
+  annotations:
+    "helm.sh/hook": crd-install
+spec:
+  group: lighthouse.submariner.io
+  version: v1
+  names:
+    kind: MultiClusterService
+    plural: multiclusterservices
+    singular: multiclusterservice
+  scope: Namespaced
+  validation:
+    openAPIV3Schema:
+      properties:
+        spec:
+          properties:
+            clusterServiceInfo:
+              properties:
+                clusterID:
+                  type: "string"
+                clusterDomain:
+                  type: "string"
+                serviceIP:
+                  type: "string"
+                port:
+                  type: "integer"
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: serviceexports.lighthouse.submariner.io
+  annotations:
+    "helm.sh/hook": crd-install
+spec:
+  group: lighthouse.submariner.io
+  version: v2alpha1
+  names:
+    kind: ServiceExport
+    plural: serviceexports
+    singular: serviceexport
+  scope: Namespaced
+{{- end -}}
+{{- end -}}

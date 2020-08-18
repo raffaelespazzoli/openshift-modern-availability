@@ -1,0 +1,12 @@
+---
+name: submariner
+version: 0.0.4
+appVersion: v0.0.4
+description: k8s 1.16.x support
+keywords:
+home: https://submariner.io/
+sources:
+  - https://submariner-io.github.io/submariner-charts/charts
+maintainers:
+  - name: Rancher Labs
+    email: charts@rancher.com

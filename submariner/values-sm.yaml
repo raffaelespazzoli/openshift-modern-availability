@@ -1,0 +1,44 @@
+submariner:
+  serviceDiscovery: true
+  clusterId: ${cluster_id}
+#  token: ""
+  clusterCidr: ${cluster_cidr}
+  serviceCidr: ${cluster_service_cidr}
+broker:
+  type: k8s
+  server: ${broker_api}
+  token: ${broker_token}
+  namespace: submariner-broker
+  insecure: false
+  ca: ${broker_ca}
+ipsec:
+  psk: ${SUBMARINER_PSK}
+engine:
+  image:
+    repository: quay.io/submariner/submariner
+    tag: "0.4.1"
+    pullPolicy: IfNotPresent    
+routeAgent:
+  image:
+    repository: quay.io/submariner/submariner-route-agent
+    tag: "0.4.1"
+    pullPolicy: IfNotPresent
+globalnet:
+  image:
+    repository: quay.io/submariner/submariner-globalnet
+    tag: "0.4.1"
+    pullPolicy: IfNotPresent
+lighthouse:
+  image:
+    repository: quay.io/submariner/lighthouse-agent
+    tag: "0.4.1"
+    pullPolicy: IfNotPresent
+lighthouseCoredns:
+  image:
+    repository: quay.io/submariner/lighthouse-coredns
+    tag: "0.4.1"
+    pullPolicy: IfNotPresent
+serviceAccounts:
+  lighthouse:
+    create: true    
+    

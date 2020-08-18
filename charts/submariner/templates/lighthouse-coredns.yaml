@@ -1,0 +1,74 @@
+{{- if .Values.submariner.serviceDiscovery }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ template "submariner.lighthouseDnsName" . }}
+  labels:
+    heritage: {{ .Release.Service | quote }}
+    release: {{ .Release.Name | quote }}
+    chart: {{ template "submariner.chart" . }}
+    app: {{ template "submariner.lighthouseDnsName" . }}
+    component: lighthouse-coredns
+spec:
+  selector:
+    matchLabels:
+      app: {{ template "submariner.lighthouseDnsName" . }}
+  replicas: 2
+  template:
+    metadata:
+      labels:
+        app: {{ template "submariner.lighthouseDnsName" . }}
+    spec:
+      containers:
+        - args:
+            - -conf
+            - /etc/coredns/Corefile
+          image: {{ .Values.lighthouseCoredns.image.repository }}:{{ .Values.lighthouseCoredns.image.tag }}
+          imagePullPolicy: {{ .Values.lighthouseCoredns.image.pullPolicy }}
+          name: {{ template "submariner.lighthouseDnsName" . }}
+          volumeMounts:
+            - mountPath: /etc/coredns
+              name: config-volume
+              readOnly: true
+      serviceAccountName: {{ template "submariner.lighthouseServiceAccountName" . }}
+      volumes:
+        - configMap:
+            defaultMode: 420
+            items:
+              - key: Corefile
+                path: Corefile
+            name: {{ template "submariner.lighthouseDnsName" . }}
+          name: config-volume
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ template "submariner.lighthouseDnsName" . }}
+  labels:
+    app: {{ template "submariner.lighthouseDnsName" . }}
+spec:
+  ports:
+    - name: udp
+      port: 53
+      protocol: UDP
+      targetPort: 53
+  selector:
+    app: {{ template "submariner.lighthouseDnsName" . }}
+  type: ClusterIP
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ template "submariner.lighthouseDnsName" . }}
+data:
+  Corefile: |
+    supercluster.local:53 {
+{{- if .Values.submariner.debug }}
+        log
+{{- end }}
+        lighthouse
+        errors
+        health
+        ready
+    }
+{{- end }}

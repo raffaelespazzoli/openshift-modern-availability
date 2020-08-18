@@ -1,0 +1,55 @@
+{{- if ne .Values.submariner.globalCidr "" }}
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: {{ template "submariner.fullname" . }}-globalnet
+  labels:
+    heritage: {{ .Release.Service | quote }}
+    release: {{ .Release.Name | quote }}
+    chart: {{ template "submariner.chart" . }}
+    app: {{ template "submariner.fullname" . }}-globalnet
+    component: globalnet
+spec:
+  selector:
+    matchLabels:
+      app: {{ template "submariner.fullname" . }}-globalnet
+  template:
+    metadata:
+      labels:
+        app: {{ template "submariner.fullname" . }}-globalnet
+    spec:
+      hostNetwork: true
+      serviceAccountName: submariner-globalnet
+      serviceAccount: submariner-globalnet
+      terminationGracePeriodSeconds: 10
+      nodeSelector:
+        submariner.io/gateway: 'true'
+      containers:
+        - name: {{ template "submariner.fullname" . }}-globalnet
+          image: {{ .Values.globalnet.image.repository }}:{{ .Values.globalnet.image.tag }}
+          imagePullPolicy: {{ .Values.globalnet.image.pullPolicy }}
+          env:
+            - name: SUBMARINER_CLUSTERID
+              value: '{{ .Values.submariner.clusterId }}'
+            - name: SUBMARINER_EXCLUDENS
+              value: 'submariner-operator,kube-system,operators'
+            - name: SUBMARINER_NAMESPACE
+              value: '{{ .Release.Namespace }}'
+          securityContext:
+            allowPrivilegeEscalation: true
+            capabilities:
+              add:
+                - ALL
+            privileged: true
+            readOnlyRootFilesystem: false
+            runAsNonRoot: false
+          volumeMounts:
+            # Because we don't actually run iptables locally, but chroot in to the host
+            - mountPath: /host
+              name: host-slash
+              readOnly: true
+      volumes:
+        - name: host-slash
+          hostPath:
+            path: /
+{{- end }}

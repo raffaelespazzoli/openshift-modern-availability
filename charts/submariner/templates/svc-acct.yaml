@@ -1,0 +1,47 @@
+{{- if .Values.serviceAccounts.engine.create }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ template "submariner.engineServiceAccountName" . }}
+  labels:
+    heritage: {{ .Release.Service | quote }}
+    release: {{ .Release.Name | quote }}
+    chart: {{ template "submariner.chart" . }}
+    app: {{ template "submariner.name" . }}
+{{- end }}
+---
+{{- if .Values.serviceAccounts.routeAgent.create }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ template "submariner.routeAgentServiceAccountName" . }}
+  labels:
+    heritage: {{ .Release.Service | quote }}
+    release: {{ .Release.Name | quote }}
+    chart: {{ template "submariner.chart" . }}
+    app: {{ template "submariner.name" . }}
+{{- end }}
+---
+{{- if .Values.serviceAccounts.globalnet.create }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ template "submariner.globalnetServiceAccountName" . }}
+  labels:
+    heritage: {{ .Release.Service | quote }}
+    release: {{ .Release.Name | quote }}
+    chart: {{ template "submariner.chart" . }}
+    app: {{ template "submariner.name" . }}
+{{- end }}
+---
+{{- if .Values.serviceAccounts.lighthouse.create }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ template "submariner.lighthouseServiceAccountName" . }}
+  labels:
+    heritage: {{ .Release.Service | quote }}
+    release: {{ .Release.Name | quote }}
+    chart: {{ template "submariner.chart" . }}
+    app: {{ template "submariner.name" . }}
+{{- end }}

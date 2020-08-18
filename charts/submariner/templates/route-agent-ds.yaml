@@ -1,0 +1,74 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: {{ template "submariner.fullname" . }}-routeagent
+  labels:
+    heritage: {{ .Release.Service | quote }}
+    release: {{ .Release.Name | quote }}
+    chart: {{ template "submariner.chart" . }}
+    app: {{ template "submariner.fullname" . }}-routeagent
+    component: routeagent
+spec:
+  selector:
+    matchLabels:
+      app: {{ template "submariner.fullname" . }}-routeagent
+  template:
+    metadata:
+      labels:
+        heritage: {{ .Release.Service | quote }}
+        release: {{ .Release.Name | quote }}
+        chart: {{ template "submariner.chart" . }}
+        app: {{ template "submariner.fullname" . }}-routeagent
+        component: routeagent
+    spec:
+      serviceAccountName: {{ template "submariner.routeAgentServiceAccountName" . }}
+      terminationGracePeriodSeconds: 10
+      hostNetwork: true
+      containers:
+      - name: routeagent
+        command:
+        - submariner-route-agent.sh
+        image: {{ .Values.routeAgent.image.repository }}:{{ .Values.routeAgent.image.tag }}
+        imagePullPolicy: {{ .Values.routeAgent.image.pullPolicy }}
+        env:
+        - name: SUBMARINER_NAMESPACE
+          value: "{{ .Release.Namespace }}"
+        - name: SUBMARINER_CLUSTERID
+          value: "{{ .Values.submariner.clusterId }}"
+        - name: SUBMARINER_DEBUG
+          value: "{{ .Values.submariner.debug }}"
+        - name: SUBMARINER_CLUSTERCIDR                                                                                                                                                        
+          value: "{{ .Values.submariner.clusterCidr }}"
+        - name: SUBMARINER_SERVICECIDR
+          value: "{{ .Values.submariner.serviceCidr }}"
+        resources:
+{{ toYaml .Values.routeAgent.resources | indent 10 }}
+        securityContext:
+          allowPrivilegeEscalation: true
+          capabilities:
+            add:
+            - ALL
+          privileged: true
+          readOnlyRootFilesystem: false
+          runAsNonRoot: false
+        volumeMounts:
+        # Because we don't actually run iptables locally, but chroot in to the host
+        - mountPath: /host
+          name: host-slash
+          readOnly: true
+{{- with .Values.routeAgent.nodeSelector }}
+      nodeSelector:
+{{ toYaml . | indent 8 }}
+{{- end }}
+{{- with .Values.routeAgent.tolerations }}
+      tolerations:
+{{ toYaml . | indent 8 }}
+{{- end }}
+{{- with .Values.routeAgent.affinity }}
+      affinity:
+{{ toYaml . | indent 8 }}
+{{- end }}
+      volumes:
+      - name: host-slash
+        hostPath:
+          path: /

@@ -1,0 +1,85 @@
+---
+submariner:
+  clusterId: ""
+  token: ""
+  clusterCidr: "10.42.0.0/16"
+  serviceCidr: "10.43.0.0/16"
+  globalCidr: ""
+  natEnabled: false
+  colorCodes: blue
+  debug: false
+  serviceDiscovery: false
+crd:
+  create: true
+broker:
+  type: k8s
+  server: example.k8s.apiserver
+  token: test
+  namespace: xyz
+  insecure: false
+  ca: ""
+rbac:
+  create: true
+ipsec:
+  psk: ""
+  debug: false
+  ikePort: 500
+  natPort: 4500
+leadership:
+  leaseDuration: 5
+  renewDeadline: 3
+  retryPeriod: 2
+engine:
+  image:
+    repository: rancher/submariner
+    tag: v0.0.2
+    pullPolicy: Always
+  resources: {}
+    # limits:
+  # cpu: 100m
+  # memory: 100Mi
+  nodeSelectorEnabled: true
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+routeAgent:
+  image:
+    repository: rancher/submariner-route-agent
+    tag: v0.0.2
+    pullPolicy: Always
+  resources: {}
+  # limits:
+  # cpu: 100m
+  # memory: 100Mi
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+globalnet:
+  image:
+    repository: submariner-globalnet
+    tag: local
+    pullPolicy: IfNotPresent
+lighthouse:
+  image:
+    repository: lighthouse-agent
+    tag: local
+    pullPolicy: IfNotPresent
+lighthouseCoredns:
+  name: ""
+  image:
+    repository: lighthouse-coredns
+    tag: local
+    pullPolicy: IfNotPresent
+serviceAccounts:
+  engine:
+    create: true
+    name: ""
+  routeAgent:
+    create: true
+    name: ""
+  globalnet:
+    create: false
+    name: ""
+  lighthouse:
+    create: false
+    name: ""

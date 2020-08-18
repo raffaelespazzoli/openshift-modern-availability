@@ -1,0 +1,138 @@
+questions:
+- variable: defaultEngineImage
+  default: true
+  description: "Use default Submariner Engine image or specify a custom one"
+  label: Use default submariner engine image
+  type: boolean
+  show_subquestion_if: false
+  group: "Container Images"
+  subquestions:
+  - variable: engine.image.repository
+    default: "rancher/submariner"
+    description: "Submariner Engine Image Repository"
+    type: string
+    label: Submariner Engine Image Repository
+  - variable: engine.image.tag
+    default: "v0.0.2"
+    description: "Submariner Engine Image Tag"
+    type: string
+    label: Submariner Engine Image Tag
+- variable: defaultRouteAgentImage
+  default: true
+  description: "Use default Submariner Route Agent image or specify a custom one"
+  label: Use default submariner route agent image
+  type: boolean
+  show_subquestion_if: false
+  group: "Container Images"
+  subquestions:
+  - variable: routeAgent.image.repository
+    default: "rancher/submariner-route-agent"
+    description: "Submariner Route Agent Image Repository"
+    type: string
+    label: Submariner Route Agent Image Repository
+  - variable: routeAgent.image.tag
+    default: "v0.0.2"
+    description: "Submariner Route Agent Image Tag"
+    type: string
+    label: Submariner Route Agent Image Tag
+- variable: engine.nodeSelectorEnabled
+  default: true
+  description: "Restrict submariner to nodes labeled with submariner.io/gateway=true"
+  label: Restrict gateway deployments to specific nodes
+  type: boolean
+  group: "Gateway Configuration"
+- variable: submariner.clusterId
+  default: ""
+  description: "Enter a unique cluster ID to identify this cluster"
+  type: string
+  label: "Cluster ID"
+  group: "Configuration"
+  required: true
+- variable: ipsec.psk
+  default: ""
+  description: "Enter the pre-shared key for the IPsec Cable Engine"
+  type: string
+  label: "IPsec Pre-Shared Key"
+  group: "Configuration"
+  required: true
+- variable: broker.type
+  type: enum
+  default: k8s
+  options:
+    - k8s
+  group: "Broker Configuration"
+  label: "Broker Type"
+  description: "Type of Broker to use"
+- variable: broker.server
+  type: string
+  default: ""
+  group: "Broker Configuration"
+  label: "Broker Server"
+  description: "Broker server to use (without the https://)"
+- variable: broker.insecure
+  type: boolean
+  default: false
+  show_subquestion_if: false
+  group: "Broker Configuration"
+  label: "Insecure Broker"
+  description: "Connect to K8s broker without validating CA"
+  subquestions:
+  - variable: broker.ca
+    type: string
+    description: "Base64 encoded broker ca.crt"
+    label: "Broker CA encoded in base64"
+    default: ""
+- variable: broker.token
+  type: string
+  group: "Broker Configuration"
+  label: "Broker Token"
+  description: "Bearer token for broker"
+- variable: broker.namespace
+  type: string
+  group: "Broker Configuration"
+  label: "Broker Namespace"
+  description: "Enter namespace to use on central broker"
+- variable: submariner.clusterCidr
+  default: ""
+  description: "Enter the cluster CIDR (i.e. 10.42.0.0/16) for this cluster"
+  type: string
+  label: "Cluster CIDR"
+  group: "CIDR Configuration"
+  required: true
+- variable: submariner.serviceCidr
+  default: ""
+  description: "Enter the service CIDR (i.e. 10.43.0.0/16) for this cluster"
+  type: string
+  label: "Service CIDR"
+  group: "CIDR Configuration"
+  required: true
+- variable: submariner.natEnabled
+  type: boolean
+  default: false
+  group: "Advanced Configuration"
+  description: "If the gateway nodes for this cluster are behind 1:1 NAT, you should enable NAT"
+  label: "NAT Enabled"
+- variable: crd.create
+  type: boolean
+  default: true
+  group: "Advanced Configuration"
+  description: "Create the Submariner CRDs, if deploying Submariner into the same cluster as the submariner-k8s-broker, you probably shouldn't create CRDs"
+  label: "CRD Creation Enabled"
+- variable: submariner.debug
+  type: boolean
+  default: false
+  group: "Advanced Configuration"
+  description: "Enable submariner debug mode"
+  label: "Submariner Debug Enabled"
+- variable: ipsec.debug
+  type: boolean
+  default: false
+  group: "Advanced Configuration"
+  description: "Enable Charon debug mode"
+  label: "Charon Enabled"
+- variable: submariner.cableDriver
+  type: string
+  default: ""
+  group: "Advanced Configuration"
+  description: "Cable driver implementation"
+  label: "Cable Driver"

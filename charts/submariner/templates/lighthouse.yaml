@@ -1,0 +1,51 @@
+{{- if .Values.submariner.serviceDiscovery }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ template "submariner.fullname" . }}-lighthouse-agent
+  labels:
+    heritage: {{ .Release.Service | quote }}
+    release: {{ .Release.Name | quote }}
+    chart: {{ template "submariner.chart" . }}
+    app: {{ template "submariner.fullname" . }}-lighthouse-agent
+    component: lighthouse
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ template "submariner.fullname" . }}-lighthouse-agent
+  template:
+    metadata:
+      labels:
+        app: {{ template "submariner.fullname" . }}-lighthouse-agent
+    spec:
+      serviceAccountName: {{ template "submariner.lighthouseServiceAccountName" . }}
+      containers:
+      - command:
+        - lighthouse-agent.sh
+        env:
+        - name: SUBMARINER_NAMESPACE
+          value: "{{ .Release.Namespace }}"
+        - name: SUBMARINER_CLUSTERID
+          value: "{{ .Values.submariner.clusterId }}"
+        - name: SUBMARINER_DEBUG
+          value: "{{ .Values.submariner.debug }}"
+        - name: BROKER_K8S_APISERVER
+          value: "{{ .Values.broker.server }}"
+        - name: BROKER_K8S_APISERVERTOKEN
+          value: "{{ .Values.broker.token }}"
+        - name: BROKER_K8S_REMOTENAMESPACE
+          value: "{{ .Values.broker.namespace }}"
+{{- if .Values.broker.insecure }}
+        - name: BROKER_K8S_INSECURE
+          value: "true"
+{{- else }}
+        - name: BROKER_K8S_CA
+          value: "{{ .Values.broker.ca }}"
+{{- end }}
+        name: {{ template "submariner.fullname" . }}-lighthouse-agent
+        image: {{ .Values.lighthouse.image.repository }}:{{ .Values.lighthouse.image.tag }}
+        imagePullPolicy: {{ .Values.lighthouse.image.pullPolicy }}
+      restartPolicy: Always
+      terminationGracePeriodSeconds: 0
+{{- end }}

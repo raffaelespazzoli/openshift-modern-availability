@@ -1,0 +1,19 @@
+questions:
+- variable: submariner-k8s-broker.rbac.create
+  type: boolean
+  default: true
+  group: "Role Based Access Control"
+  description: "Create the role/rolebinding for the Submariner client"
+  label: "RBAC Creation Enabled"
+- variable: submariner-k8s-broker.crd.create
+  type: boolean
+  default: true
+  group: "Submariner CRD"
+  description: "Create the submariner CRDs for the Submariner client"
+  label: "Submariner CRD Creation Enabled"
+- variable: submariner-k8s-broker.serviceAccounts.client.create
+  type: boolean
+  default: true
+  group: "Service Account"
+  description: "Create the service account for the Submariner client"
+  label: "Submariner Service Account Creation Enabled"

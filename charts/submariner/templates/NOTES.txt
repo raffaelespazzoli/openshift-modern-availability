@@ -1,0 +1,7 @@
+Submariner is now installed.
+
+{{- if .Values.engine.nodeSelectorEnabled }}
+If you haven't done so yet, please label a node as `submariner.io/gateway=true` to elect it for running Submariner.
+{{- end }}
+
+By default, Submariner runs with 1 replica. If you have more than one Gateway host, you can scale Submariner to N replicas, and the other Submariner pods will simply join the leader election pool.

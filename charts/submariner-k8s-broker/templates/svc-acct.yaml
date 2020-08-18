@@ -1,0 +1,11 @@
+{{- if .Values.serviceAccounts.client.create }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ template "submariner-k8s-broker.clientServiceAccountName" . }}
+  labels:
+    heritage: {{ .Release.Service | quote }}
+    release: {{ .Release.Name | quote }}
+    chart: {{ template "submariner-k8s-broker.chart" . }}
+    app: {{ template "submariner-k8s-broker.name" . }}
+{{- end }}

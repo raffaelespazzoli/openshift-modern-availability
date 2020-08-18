@@ -1,0 +1,12 @@
+---
+name: submariner-k8s-broker
+version: 0.0.2
+appVersion: v0.0.2
+description: Submariner Kubernetes Broker
+keywords:
+home: https://submariner.io/
+sources:
+- https://submariner-io.github.io/submariner-charts/charts
+maintainers:
+- name: Rancher Labs
+  email: charts@rancher.com

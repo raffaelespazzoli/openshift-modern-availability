@@ -1,0 +1,134 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  labels:
+    heritage: {{ .Release.Service | quote }}
+    release: {{ .Release.Name | quote }}
+    chart: {{ template "submariner.chart" . }}
+    app: {{ template "submariner.fullname" . }}-engine
+    component: engine
+  name: {{ template "submariner.fullname" . }}-gateway
+spec:
+  revisionHistoryLimit: 5
+  selector:
+    matchLabels:
+      app: {{ template "submariner.fullname" . }}-engine
+  updateStrategy:
+    rollingUpdate:
+      maxUnavailable: 1
+    type: RollingUpdate
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app: {{ template "submariner.fullname" . }}-engine
+    spec:
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: app
+                operator: In
+                values:
+                - {{ template "submariner.fullname" . }}-engine
+            topologyKey: "kubernetes.io/hostname"
+{{- with .Values.engine.affinity }}
+{{ toYaml . | indent 8 }}
+{{- end }}
+      nodeSelector:
+{{- if .Values.engine.nodeSelectorEnabled }}
+        submariner.io/gateway: "true"
+{{- end }}
+{{- with .Values.engine.nodeSelector }}
+{{ toYaml . | indent 8 }}
+{{- end }}
+{{- with .Values.engine.tolerations }}
+      tolerations:
+{{ toYaml . | indent 8 }}
+{{- end }}
+      containers:
+      - command:
+        - submariner.sh
+        env:
+        - name: SUBMARINER_NAMESPACE
+          value: "{{ .Release.Namespace }}"
+        - name: SUBMARINER_CLUSTERCIDR
+          value: "{{ .Values.submariner.clusterCidr }}"
+        - name: SUBMARINER_SERVICECIDR
+          value: "{{ .Values.submariner.serviceCidr }}"
+        - name: SUBMARINER_GLOBALCIDR
+          value: "{{ .Values.submariner.globalCidr }}"
+        - name: SUBMARINER_TOKEN
+          value: "{{ .Values.submariner.apiToken }}"
+        - name: SUBMARINER_CLUSTERID
+          value: "{{ .Values.submariner.clusterId }}"
+        - name: SUBMARINER_COLORCODES
+          value: "{{ .Values.submariner.colorCodes }}"
+        - name: SUBMARINER_DEBUG
+          value: "{{ .Values.submariner.debug }}"
+        - name: SUBMARINER_NATENABLED
+          value: "{{ .Values.submariner.natEnabled }}"
+        - name: SUBMARINER_BROKER
+          value: "{{ .Values.broker.type }}"
+        - name: SUBMARINER_CABLEDRIVER
+          value: "{{ .Values.submariner.cableDriver }}"
+{{- if eq .Values.broker.type "phpapi" }}
+        - name: BROKER_PHPAPI_PROTO
+          value: "{{ .Values.broker.proto }}"
+        - name: BROKER_PHPAPI_SERVER
+          value: "{{ .Values.broker.server }}"
+{{- end }}
+{{- if eq .Values.broker.type "k8s" }}
+        - name: BROKER_K8S_APISERVER
+          value: "{{ .Values.broker.server }}"
+        - name: BROKER_K8S_APISERVERTOKEN
+          value: "{{ .Values.broker.token }}"
+        - name: BROKER_K8S_REMOTENAMESPACE
+          value: "{{ .Values.broker.namespace }}"
+{{- if .Values.broker.insecure }}
+        - name: BROKER_K8S_INSECURE
+          value: "true"
+{{- else }}
+        - name: BROKER_K8S_CA
+          value: "{{ .Values.broker.ca }}"
+{{- end }}
+{{- end }}
+        - name: CE_IPSEC_PSK
+          value: "{{ .Values.ipsec.psk }}"
+        - name: CE_IPSEC_DEBUG
+          value: "{{ .Values.ipsec.debug }}"
+        - name: CE_IPSEC_IKEPORT
+          value: "{{ .Values.ipsec.ikePort }}"
+        - name: CE_IPSEC_NATTPORT
+          value: "{{ .Values.ipsec.natPort }}"
+        - name: LEADERSHIP_LEASEDURATION
+          value: "{{ .Values.leadership.leaseDuration }}"
+        - name: LEADERSHIP_RENEWDEADLINE
+          value: "{{ .Values.leadership.renewDeadline }}"
+        - name: LEADERSHIP_RETRYPERIOD
+          value: "{{ .Values.leadership.retryPeriod }}"
+        image: {{ .Values.engine.image.repository }}:{{ .Values.engine.image.tag }}
+        imagePullPolicy: {{ .Values.engine.image.pullPolicy }}
+        name: submariner
+        resources:
+{{ toYaml .Values.engine.resources | indent 10 }}
+        securityContext:
+          allowPrivilegeEscalation: true
+          capabilities:
+            add:
+            - ALL
+          privileged: true
+          readOnlyRootFilesystem: false
+          runAsNonRoot: false
+        stdin: true
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        tty: true
+      dnsPolicy: ClusterFirst
+      hostNetwork: true
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      terminationGracePeriodSeconds: 10
+      serviceAccountName: {{ template "submariner.engineServiceAccountName" . }}
