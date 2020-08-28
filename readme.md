@@ -34,14 +34,20 @@ create clusters
 
 ```shell
 export region="us-east-1"
+export network_cidr="10.128.0.0/14"
+export service_cidr="172.30.0.0/16"
 envsubst < ./acm/acm-cluster-values.yaml > /tmp/values.yaml
 helm upgrade cluster1 ./charts/acm-aws-cluster --create-namespace -i -n cluster1  -f /tmp/values.yaml
 
 export region="us-east-2"
+export network_cidr="10.132.0.0/14"
+export service_cidr="172.31.0.0/16"
 envsubst < ./acm/acm-cluster-values.yaml > /tmp/values.yaml
 helm upgrade cluster2 ./charts/acm-aws-cluster --create-namespace -i -n cluster2  -f /tmp/values.yaml
 
 export region="us-west-2"
+export network_cidr="10.136.0.0/14"
+export service_cidr="172.32.0.0/16"
 envsubst < ./acm/acm-cluster-values.yaml > /tmp/values.yaml
 helm upgrade cluster3 ./charts/acm-aws-cluster --create-namespace -i -n cluster3  -f /tmp/values.yaml
 ```
@@ -101,9 +107,9 @@ export namespace=global-load-balancer-operator
 oc --context ${control_cluster} new-project ${namespace}
 oc --context ${control_cluster} apply -f https://raw.githubusercontent.com/kubernetes-sigs/external-dns/master/docs/contributing/crd-source/crd-manifest.yaml
 oc --context ${control_cluster} apply -f ./global-load-balancer-operator/operator.yaml -n ${namespace}
-envsubst < ./global-load-balancer-operator/route53-credentials-request.yaml | oc apply -f - -n ${namespace}
-envsubst < ./global-load-balancer-operator/route53-dns-zone.yaml | oc apply -f -
-envsubst < ./global-load-balancer-operator/route53-global-route-discovery.yaml | oc apply -f - -n ${namespace}
+envsubst < ./global-load-balancer-operator/route53-credentials-request.yaml | oc --context ${control_cluster} apply -f - -n ${namespace}
+envsubst < ./global-load-balancer-operator/route53-dns-zone.yaml | oc --context ${control_cluster} apply -f -
+envsubst < ./global-load-balancer-operator/route53-global-route-discovery.yaml | oc --context ${control_cluster} apply -f - -n ${namespace}
 ```
 
 ## Deploy Submariner (network tunnel)
@@ -111,13 +117,13 @@ envsubst < ./global-load-balancer-operator/route53-global-route-discovery.yaml |
 ### Prepare nodes for submariner
 
 ```shell
-git clone https://github.com/submariner-io/submariner
+git -C /tmp clone https://github.com/submariner-io/submariner
 for context in ${cluster1} ${cluster2} ${cluster3}; do
   cluster_id=$(oc --context ${context} get infrastructure cluster -o jsonpath='{.status.infrastructureName}')
   cluster_region=$(oc --context ${context} get infrastructure cluster -o jsonpath='{.status.platformStatus.aws.region}')
   echo $cluster_id $cluster_region
   mkdir -p /tmp/${cluster_id}
-  cp -R ./submariner/tools/openshift/ocp-ipi-aws/* /tmp/${cluster_id}
+  cp -R /tmp/submariner/tools/openshift/ocp-ipi-aws/* /tmp/${cluster_id}
   sed -i "s/\"cluster_id\"/\"${cluster_id}\"/g" /tmp/${cluster_id}/main.tf
   sed -i "s/\"aws_region\"/\"${cluster_region}\"/g" /tmp/${cluster_id}/main.tf
   pushd /tmp/${cluster_id}
@@ -128,7 +134,7 @@ for context in ${cluster1} ${cluster2} ${cluster3}; do
 done
 ```
 
-### Deploy submariner
+### Deploy submariner via helm chart (do not use)
 
 ```shell
 helm repo add submariner-latest https://submariner-io.github.io/submariner-charts/charts
@@ -137,9 +143,9 @@ helm repo add submariner-latest https://submariner-io.github.io/submariner-chart
 Deploy the broker
 
 ```shell
-oc --context ${context_cluster_control} new-project submariner-broker
-oc --context ${context_cluster_control} apply -f ./submariner/submariner-crds.yaml
-helm upgrade submariner-broker submariner-latest/submariner-k8s-broker --kube-context ${context_cluster_control} -i --create-namespace -f ./submariner/values-sm-broker.yaml -n submariner-broker
+oc --context ${control_cluster} new-project submariner-broker
+oc --context ${control_cluster} apply -f ./submariner/submariner-crds.yaml
+helm upgrade submariner-broker submariner-latest/submariner-k8s-broker --kube-context ${control_cluster} -i --create-namespace -f ./submariner/values-sm-broker.yaml -n submariner-broker
 ```
 
 Deploy submariner
@@ -163,4 +169,134 @@ for context in ${cluster1} ${cluster2} ${cluster3}; do
   oc --context ${context} adm policy add-scc-to-user privileged -z submariner-routeagent -n submariner
   helm template submariner ./charts/submariner --kube-context ${context} --create-namespace -f /tmp/values-sm.yaml -n submariner | oc --context ${context} apply -f - -n submariner
 done
+```
+
+### Deploy submariner via CLI
+
+```shell
+subctl deploy-broker --kubecontext ${control_cluster} --service-discovery
+mv broker-info.subm /tmp/broker-info.subm
+for context in ${cluster1} ${cluster2} ${cluster3}; do
+  subctl join --kubecontext ${context} /tmp/broker-info.subm --no-label --clusterid $(echo ${context} | cut -d "/" -f2 | cut -d "-" -f2)
+done
+```
+
+## Deploy Vault
+
+### Create vault root key (rootca and KMS key)
+
+```shell
+export region=$(oc --context ${control_cluster} get infrastructure cluster -o jsonpath='{.status.platformStatus.aws.region}')
+export key_id=$(aws --region ${region} kms create-key | jq -r .KeyMetadata.KeyId)
+oc --context ${control_cluster} new-project vault
+oc --context ${control_cluster} create secret generic vault-kms -n vault --from-literal=key_id=${key_id}
+oc --context ${control_cluster} apply -f ./vault/vault-control-cluster-certs.yaml -n vault
+export rootca_crt=$(oc --context ${control_cluster} get secret rootca -n vault -o jsonpath='{.data.tls\.crt}')
+export rootca_key=$(oc --context ${control_cluster} get secret rootca -n vault -o jsonpath='{.data.tls\.key}')
+```
+
+### Deploy cert-manager and cert-utils-operator
+
+```shell
+for context in ${cluster1} ${cluster2} ${cluster3}; do
+  oc --context ${context} new-project cert-manager
+  oc --context ${context} apply --validate=false -f https://github.com/jetstack/cert-manager/releases/download/v0.16.1/cert-manager.yaml
+  oc --context ${context} new-project cert-utils-operator
+  oc --context ${context} apply  -f ./cert-utils-operator/operator.yaml -n cert-utils-operator
+done
+```
+
+### Deploy Vault instances
+
+```shell
+export rootca_crt=$(oc --context ${control_cluster} get secret rootca -n vault -o jsonpath='{.data.tls\.crt}')
+export rootca_key=$(oc --context ${control_cluster} get secret rootca -n vault -o jsonpath='{.data.tls\.key}')
+export key_id=$(oc --context ${control_cluster} get secret vault-kms -n vault -o jsonpath='{.data.key_id}' | base64 -d )
+export region=$(oc --context ${control_cluster} get infrastructure cluster -o jsonpath='{.status.platformStatus.aws.region}')
+export cluster_base_domain=$(oc --context ${control_cluster} get dns cluster -o jsonpath='{.spec.baseDomain}')
+export global_base_domain=global.${cluster_base_domain#*.}
+helm dependency update ./charts/vault-multicluster
+for context in ${cluster1} ${cluster2} ${cluster3}; do
+  envsubst < ./vault/kms-values.yaml.template > /tmp/values.yaml
+  helm --kube-context ${context} upgrade vault ./charts/vault-multicluster -i --create-namespace -n vault -f /tmp/values.yaml
+done
+```
+
+### Initialize Vault (run once-only)
+
+```shell
+HA_INIT_RESPONSE=$(oc --context ${cluster1} exec vault-0 -n vault -- vault operator init -address https://vault-0.cluster-1.vault-internal.vault.svc.clusterset.local:8200 -ca-path /etc/vault-tls/vault-tls/ca.crt -format=json -recovery-shares 1 -recovery-threshold 1)
+
+HA_UNSEAL_KEY=$(echo "$HA_INIT_RESPONSE" | jq -r .recovery_keys_b64[0])
+HA_VAULT_TOKEN=$(echo "$HA_INIT_RESPONSE" | jq -r .root_token)
+
+echo "$HA_UNSEAL_KEY"
+echo "$HA_VAULT_TOKEN"
+
+#here we are saving these variable in a secret, this is probably not what you should do in a production environment
+oc --context ${control_cluster} create secret generic vault-init -n vault --from-literal=unseal_key=${HA_UNSEAL_KEY} --from-literal=root_token=${HA_VAULT_TOKEN}
+```
+
+### Verify Vault Cluster Health
+
+```shell
+oc --context ${cluster1} exec vault-0 -n vault -- sh -c "VAULT_TOKEN=${HA_VAULT_TOKEN} vault operator raft list-peers -address https://vault-0.cluster-1.vault-internal.vault.svc.clusterset.local:8200 -ca-path /etc/vault-tls/vault-tls/ca.crt"
+```
+
+### Testing vault external connectivity
+
+```shell
+export VAULT_ADDR=https://vault.${global_base_domain}
+export VAULT_TOKEN=$(oc --context ${control_cluster} get secret vault-init -n vault -o jsonpath '{data.root_token}' | base64 -d )
+vault status -tls-skip-verify
+```
+
+### Access Vault UI
+
+browse to here
+
+```shell
+echo $VAULT_ADDR/ui
+```
+
+## Vault cert-manager integration
+
+With this integration we enable the previously installed cert-manager to create certificates via vault.
+
+### Prepare Kubernetes authentication
+
+```shell
+export VAULT_ADDR=https://vault.${global_base_domain}
+export VAULT_TOKEN=$(oc --context ${control_cluster} get secret vault-init -n vault -o jsonpath '{data.root_token}'| base64 -d )
+for context in ${cluster1} ${cluster2} ${cluster3}; do
+  export clusterid=$(echo ${context} | cut -d "/" -f2 | cut -d "-" -f2)
+  vault auth enable -tls-skip-verify kubernetes --path=kubernetes-${clusterid}
+  export sa_secret_name=$(oc --context ${context} get sa vault -n vault -o jsonpath='{.secrets[*].name}' | grep -o '\b\w*\-token-\w*\b')
+  oc --context ${context} get secret ${sa_secret_name} -n vault -o jsonpath='{.data.ca\.crt}' | base64 -d > /tmp/ca.crt
+  vault write -tls-skip-verify auth/kubernetes-${clusterid}/config token_reviewer_jwt="$(oc --context ${context} serviceaccounts get-token vault -n vault)" kubernetes_host=https://kubernetes.default.svc:443 kubernetes_ca_cert=@/tmp/ca.crt
+  vault write -tls-skip-verify auth/kubernetes-${clusterid}/role/cert-manager bound_service_account_names=default bound_service_account_namespaces=cert-manager policies=default,cert-manager
+done
+```
+
+### Prepare vault pki
+
+```shell
+export VAULT_ADDR=https://vault.${global_base_domain}
+export VAULT_TOKEN=$(oc --context ${control_cluster} get secret vault-init -n vault -o jsonpath '{data.root_token}'| base64 -d )
+vault secrets enable -tls-skip-verify pki
+vault write -tls-skip-verify pki/root/generate/internal common_name=cert-manager.cluster.local
+vault write -tls-skip-verify pki/config/urls issuing_certificates="http://vault.vault.svc:8200/v1/pki/ca" crl_distribution_points="http://vault.vault.svc:8200/v1/pki/crl"
+vault write -tls-skip-verify pki/roles/cert-manager allowed_domains=svc,svc.cluster.local allow_subdomains=true allow_localhost=false
+vault policy write -tls-skip-verify cert-manager ./vault/cert-manager-policy.hcl
+```
+
+### Prepare cert-manager Cluster Issuer
+
+```shell
+for context in ${cluster1} ${cluster2} ${cluster3}; do
+  export vault_ca=$(oc --context ${context} get secret vault-tls -n vault -o jsonpath='{.data.ca\.crt}')
+  export sa_secret_name=$(oc --context ${context} get sa default -n cert-manager -o jsonpath='{.secrets[*].name}' | grep -o '\b\w*\-token-\w*\b')
+  export clusterid=$(echo ${context} | cut -d "/" -f2 | cut -d "-" -f2)
+  envsubst < vault-issuer.yaml | oc --context ${context} apply -f - -n cert-manager
+done  
 ```

@@ -1,0 +1,38 @@
+ # Create an Issuer that uses the above generated CA certificate to issue certs
+apiVersion: cert-manager.io/v1alpha2
+kind: Issuer
+metadata:
+  name: internal-issuer
+spec:
+  ca:
+    secretName: rootca
+---
+apiVersion: cert-manager.io/v1alpha2
+kind: Certificate
+metadata:
+  name: vault
+spec:
+  # Secret names are always required.
+  secretName: vault-tls
+  commonName: vault
+  usages:
+    - server auth
+    - client auth  
+  dnsNames:
+  - vault-0.cluster-1.vault-internal.vault.svc.clusterset.local
+  - vault-1.cluster-1.vault-internal.vault.svc.clusterset.local
+  - vault-0.cluster-2.vault-internal.vault.svc.clusterset.local
+  - vault-1.cluster-2.vault-internal.vault.svc.clusterset.local
+  - vault-0.cluster-3.vault-internal.vault.svc.clusterset.local
+  - vault-1.cluster-3.vault-internal.vault.svc.clusterset.local 
+  - vault
+  - vault.vault.svc
+  - vault.vault.svc.cluster.local
+  issuerRef:
+    name: internal-issuer
+    # We can reference ClusterIssuers by changing the kind here.
+    # The default value is Issuer (i.e. a locally namespaced Issuer)
+    kind: Issuer
+    # This is optional since cert-manager will default to this value however
+    # if you are using an external issuer, change this to that issuer group.
+    group: cert-manager.io      

@@ -39,12 +39,14 @@ install_config:
         type: m5.large
   networking:
     clusterNetwork:
-    - cidr: 10.128.0.0/14
+      # added by template
+    - cidr: ""
       hostPrefix: 23
     machineCIDR: 10.0.0.0/16
     networkType: OpenShiftSDN
     serviceNetwork:
-    - 172.30.0.0/16
+      # added by template
+    - ""
   platform:
     aws:
       # added by template

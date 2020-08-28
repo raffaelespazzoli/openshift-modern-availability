@@ -1,0 +1,41 @@
+apiVersion: cert-manager.io/v1alpha2
+kind: Certificate
+metadata:
+  name: vault-route
+spec:
+  # Secret names are always required.
+  secretName: vault-route-tls
+  commonName: vault
+  usages:
+    - server auth
+  dnsNames:
+  - vault-{{ .Values.global_base_domain }}
+  issuerRef:
+    name: internal-issuer
+    # We can reference ClusterIssuers by changing the kind here.
+    # The default value is Issuer (i.e. a locally namespaced Issuer)
+    kind: Issuer
+    # This is optional since cert-manager will default to this value however
+    # if you are using an external issuer, change this to that issuer group.
+    group: cert-manager.io
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: vault-ui
+  annotations:
+    cert-utils-operator.redhat-cop.io/destinationCA-from-secret: vault-tls
+    cert-utils-operator.redhat-cop.io/certs-from-secret: vault-route-tls
+  labels:
+    route-type: global  
+spec:
+  host: vault-{{ .Values.global_base_domain }}
+  port:
+    targetPort: https
+  tls:
+    insecureEdgeTerminationPolicy: Redirect
+    termination: reencrypt
+  to:
+    kind: Service
+    name: vault-ui
+        
