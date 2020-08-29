@@ -301,21 +301,17 @@ for context in ${cluster1} ${cluster2} ${cluster3}; do
 done  
 ```
 
-
 ## Deploy cockroachDB
-
-### Deploy resource-locker-operator
-
-this is needed for a workaround for a cockraochdb limitation.
-
-```shell
-for context in ${cluster1} ${cluster2} ${cluster3}; do
-  oc --context ${context} new-project resource-locker-operator
-  oc --context ${context} apply  -f ./cert-utils-operator/operator.yaml -n resource-locker-operator
-done
-```
 
 ### Deploy CRDB
 
 ```shell
 helm repo add cockroachdb https://charts.cockroachdb.com/
+helm dependency update ./charts/vault-multicluster
+export cluster_base_domain=$(oc --context ${control_cluster} get dns cluster -o jsonpath='{.spec.baseDomain}')
+export global_base_domain=global.${cluster_base_domain#*.}
+for context in ${cluster1} ${cluster2} ${cluster3}; do
+  envsubst < ./cockroachdb/values.templ.yaml > /tmp/values.yaml
+  helm --kube-context ${context} upgrade cockroachdb ./charts/cockroachdb-multicluster -i --create-namespace -n cockroachdb -f /tmp/values.yaml --set conf.locality=cluster=$(echo ${context} | cut -d "/" -f2 | cut -d "-" -f2)
+done
+```
