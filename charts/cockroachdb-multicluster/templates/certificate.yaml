@@ -1,0 +1,28 @@
+apiVersion: cert-manager.io/v1alpha2
+kind: Certificate
+metadata:
+  name: {{ template "cockroachdb-multicluster.fullname" . }}
+spec:
+  # Secret names are always required.
+  secretName: {{ template "cockroachdb-multicluster.fullname" . }}-tls
+  commonName: node
+  usages:
+    - server auth
+    - client auth  
+  dnsNames:
+{{- $fullname := .Values.cockroachdb.fullnameOverride -}}
+{{- $namespace := .Release.Namespace  -}}
+{{- range .Values.clusters }}
+{{- $cluster:= . }}    
+{{- range until (int .Values.statefulset.replicas) }}
+  - {{ $fullname }}-{{ . }}.{{ $clusterName }}.{{ $fullname }}.{{ $namespace }}.svc.clusterset.local
+{{- end }}
+{{- end }}
+  issuerRef:
+    name: vault-issuer
+    # We can reference ClusterIssuers by changing the kind here.
+    # The default value is Issuer (i.e. a locally namespaced Issuer)
+    kind: ClusterIssuer
+    # This is optional since cert-manager will default to this value however
+    # if you are using an external issuer, change this to that issuer group.
+    group: cert-manager.io

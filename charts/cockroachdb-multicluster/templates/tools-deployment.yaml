@@ -1,0 +1,75 @@
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ template "cockroachdb-multicluster.fullname" . }}-tools
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ template "cockroachdb-multicluster.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name | quote }}
+      component: tools
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app.kubernetes.io/name: {{ template "cockroachdb-multicluster.name" . }}
+        app.kubernetes.io/instance: {{ .Release.Name | quote }}
+        component: tools
+    spec:
+      containers:
+      - command:
+        - bash
+        args:
+        - -c
+        - sleep infinity
+        image: "{{ .Values.cockroachdb.image.repository }}:{{ .Values.cockroachdb.image.tag }}"
+        imagePullPolicy: IfNotPresent
+        name: tools
+        volumeMounts:
+        - name: certs
+          mountPath: /crdb-certs        
+      - name: certs-reloader
+        image: ubi8:latest
+        command:
+          - /usr/bin/bash
+        args:
+          - -c
+          - /script/certs-reload.sh
+        env:
+          - name: CERT
+            value: /certs/tls.crt
+          - name: DST_CERT
+            value: /crdb-certs/client.root.crt              
+          - name: KEY 
+            value: /certs/tls.key
+          - name: DST_KEY 
+            value: /crdb-certs/client.root.key              
+          - name: CA
+            value: /certs/ca.crt
+          - name: DST_CA
+            value: /crdb-certs/ca.crt              
+        volumeMounts:
+        - name: cert-reload-config
+          mountPath: /script
+        - name: certs-tls
+          mountPath: /certs
+        - name: certs
+          mountPath: /crdb-certs
+      volumes:
+      - name: certs-tls
+        secret:
+          secretName: {{ template "cockroachdb-multicluster.fullname" . }}-tls-root-client
+          defaultMode: 420
+      - name: cert-reload-config
+        configMap:
+          name: {{ template "cockroachdb-multicluster.fullname" . }}-certs-reload
+          defaultMode: 504
+      - name: certs
+        emptyDir: {}       
+

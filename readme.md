@@ -300,3 +300,22 @@ for context in ${cluster1} ${cluster2} ${cluster3}; do
   envsubst < vault-issuer.yaml | oc --context ${context} apply -f - -n cert-manager
 done  
 ```
+
+
+## Deploy cockroachDB
+
+### Deploy resource-locker-operator
+
+this is needed for a workaround for a cockraochdb limitation.
+
+```shell
+for context in ${cluster1} ${cluster2} ${cluster3}; do
+  oc --context ${context} new-project resource-locker-operator
+  oc --context ${context} apply  -f ./cert-utils-operator/operator.yaml -n resource-locker-operator
+done
+```
+
+### Deploy CRDB
+
+```shell
+helm repo add cockroachdb https://charts.cockroachdb.com/

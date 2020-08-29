@@ -1,0 +1,39 @@
+apiVersion: cert-manager.io/v1alpha2
+kind: Certificate
+metadata:
+  name: {{ template "cockroachdb-multicluster.fullname" . }}-route
+spec:
+  # Secret names are always required.
+  secretName: {{ template "cockroachdb-multicluster.fullname" . }}-route-tls
+  commonName: {{ template "cockroachdb-multicluster.fullname" . }}
+  usages:
+    - server auth
+  dnsNames:
+  - {{ template "cockroachdb-multicluster.fullname" . }}.{{ .Values.global_base_domain }}
+  issuerRef:
+    name: vault-issuer
+    # We can reference ClusterIssuers by changing the kind here.
+    # The default value is Issuer (i.e. a locally namespaced Issuer)
+    kind: ClusterIssuer
+    # This is optional since cert-manager will default to this value however
+    # if you are using an external issuer, change this to that issuer group.
+    group: cert-manager.io
+---    
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  annotations:
+    cert-utils-operator.redhat-cop.io/destinationCA-from-secret: {{ template "cockroachdb-multicluster.fullname" . }}-tls
+    cert-utils-operator.redhat-cop.io/certs-from-secret: {{ template "cockroachdb-multicluster.fullname" . }}-route-tls
+  labels:
+    route-type: global    
+  name: {{ template "cockroachdb-multicluster.fullname" . }}
+spec:
+  host: {{ template "cockroachdb-multicluster.fullname" . }}.{{ .Values.global_base_domain }}
+  port:
+    targetPort: http
+  tls:
+    termination: reencrypt
+  to:
+    kind: Service
+    name: {{ template "cockroachdb-multicluster.fullname" . }}-public

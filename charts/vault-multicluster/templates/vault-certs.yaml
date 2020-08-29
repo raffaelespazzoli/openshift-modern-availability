@@ -28,10 +28,11 @@ spec:
     - client auth  
   dnsNames:
 {{- $replicas:=.Values.vault.server.ha.replicas }}
+{{- $namespace := .Release.Namespace  -}}
 {{- range .Values.clusterNames }}
 {{- $clusterName:= . }}
 {{- range (until ($replicas | int) ) }}
-  - vault-{{ . }}.{{ $clusterName }}.vault-internal.vault.svc.clusterset.local
+  - vault-{{ . }}.{{ $clusterName }}.vault-internal.{{ $namespace }}.svc.clusterset.local
 {{- end }}
 {{- end }}   
   - vault
@@ -44,4 +45,4 @@ spec:
     kind: Issuer
     # This is optional since cert-manager will default to this value however
     # if you are using an external issuer, change this to that issuer group.
-    group: cert-manager.io      
+    group: cert-manager.io
