@@ -2,7 +2,7 @@
 
 This is a step by step tutorial to deploying stateful application with high availability and zero downtime DR (RTO,RPO~>0).
 You will need a cluster and the ability to spawn new ones.
-This tutorial works on AWS, but the concepts maybe reused everywhere.
+This tutorial works on AWS, but the concepts may be reused everywhere.
 
 ## Deploy RHACM
 
@@ -52,7 +52,11 @@ envsubst < ./acm/acm-cluster-values.yaml > /tmp/values.yaml
 helm upgrade cluster3 ./charts/acm-aws-cluster --create-namespace -i -n cluster3  -f /tmp/values.yaml
 ```
 
-Wait about 40 minutes
+Wait about 40 minutes.
+
+At this point your architecture should look like the below image:
+
+![RHACM](./media/RHACM.png)
 
 ### Prepare login config contexts
 
@@ -107,10 +111,19 @@ export namespace=global-load-balancer-operator
 oc --context ${control_cluster} new-project ${namespace}
 oc --context ${control_cluster} apply -f https://raw.githubusercontent.com/kubernetes-sigs/external-dns/master/docs/contributing/crd-source/crd-manifest.yaml
 oc --context ${control_cluster} apply -f ./global-load-balancer-operator/operator.yaml -n ${namespace}
+```
+
+### Deploy global dns configuration for route53
+
+```shell
 envsubst < ./global-load-balancer-operator/route53-credentials-request.yaml | oc --context ${control_cluster} apply -f - -n ${namespace}
 envsubst < ./global-load-balancer-operator/route53-dns-zone.yaml | oc --context ${control_cluster} apply -f -
 envsubst < ./global-load-balancer-operator/route53-global-route-discovery.yaml | oc --context ${control_cluster} apply -f - -n ${namespace}
 ```
+
+At this point your architecture should look like the below image:
+
+![Global Load Balancer](./media/GLB.png)
 
 ## Deploy Submariner (network tunnel)
 
@@ -181,9 +194,13 @@ for context in ${cluster1} ${cluster2} ${cluster3}; do
 done
 ```
 
+At this point your architecture should look like the below image:
+
+![Network Tunnel](./media/Submariner.png)
+
 ## Deploy Vault
 
-### Create vault root key (rootca and KMS key)
+### Create vault root keys (rootca and KMS key)
 
 ```shell
 export region=$(oc --context ${control_cluster} get infrastructure cluster -o jsonpath='{.status.platformStatus.aws.region}')
@@ -259,6 +276,10 @@ browse to here
 echo $VAULT_ADDR/ui
 ```
 
+At this point your architecture should look like the below image:
+
+![Vault](./media/Vault.png)
+
 ## Vault cert-manager integration
 
 With this integration we enable the previously installed cert-manager to create certificates via vault.
@@ -314,4 +335,43 @@ for context in ${cluster1} ${cluster2} ${cluster3}; do
   envsubst < ./cockroachdb/values.templ.yaml > /tmp/values.yaml
   helm --kube-context ${context} upgrade cockroachdb ./charts/cockroachdb-multicluster -i --create-namespace -n cockroachdb -f /tmp/values.yaml --set conf.locality=cluster=$(echo ${context} | cut -d "/" -f2 | cut -d "-" -f2)
 done
+```
+
+### Start and Verify the cluster
+
+```shell
+export tools_pod=$(oc --context ${cluster1} get pods -n cockroachdb | grep tools | awk '{print $1}')
+oc --context ${cluster1} exec $tools_pod -c tools -n cockroachdb -- /cockroach/cockroach init --certs-dir=/crdb-certs --host cockroachdb-0.cluster-1.cockroachdb.cockroachdb.svc.clusterset.local
+oc --context ${cluster1} exec $tools_pod -c tools -n cockroachdb -- /cockroach/cockroach node status --certs-dir=/crdb-certs --host cockroachdb-0.cluster-1.cockroachdb.cockroachdb.svc.clusterset.local
+```
+
+### Create CRDB admin user
+
+```shell
+oc --context ${cluster1} exec $tools_pod -c tools -n cockroachdb -- /cockroach/cockroach sql --execute='CREATE USER admin WITH PASSWORD admin;' --certs-dir=/crdb-certs --host cockroachdb-0.cluster-1.cockroachdb.cockroachdb.svc.clusterset.local
+oc --context ${cluster1} exec $tools_pod -c tools -n cockroachdb -- /cockroach/cockroach sql --execute='GRANT admin TO admin WITH ADMIN OPTION;' --certs-dir=/crdb-certs --host cockroachdb-0.cluster-1.cockroachdb.cockroachdb.svc.clusterset.local
+```
+
+### Connecting to the CRDB ui
+
+```shell
+export cluster_base_domain=$(oc --context ${control_cluster} get dns cluster -o jsonpath='{.spec.baseDomain}')
+export global_base_domain=global.${cluster_base_domain#*.}
+echo cockroachdb.${global_base_domain}
+```
+
+connect to $ui_url user admin/admin
+
+At this point your architecture should look like the below image:
+
+![CRDB](./media/CRDB.png)
+
+### Setup Vault to manage CRDB's accounts
+
+```shell
+export VAULT_ADDR=https://vault.${global_base_domain}
+export VAULT_TOKEN=$(oc --context ${control_cluster} get secret vault-init -n vault -o jsonpath '{data.root_token}'| base64 -d )
+vault secrets enable database
+vault write database/config/cockroachdb plugin_name=postgresql-database-plugin allowed_roles="cockroachdb-role" connection_url="postgresql://{{username}}:{{password}}@cockroachdb-public.cockroachdb.svc.clusterset.local:5432/" username="admin" password="admin"
+vault write database/roles/cockroachdb-role db_name=cockroachdb creation_statements="CREATE ROLE \"{{name}}\" WITH LOGIN PASSWORD '{{password}}' VALID UNTIL '{{expiration}}'; GRANT SELECT ON ALL TABLES IN SCHEMA public TO \"{{name}}\";" default_ttl="24h" max_ttl="7d"
 ```
