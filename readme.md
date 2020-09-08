@@ -6,9 +6,9 @@ This tutorial works on AWS, but the concepts may be reused everywhere.
 
 This tutorial is comprised of the following steps:
 
-1. [cluster preparation](./cluster-preparation.yaml)
-2. [establishing trust](establishing-trust.yaml) between the clusters
-3. [deploying cockroachdb](cockroachdb.yaml)
+1. [cluster preparation](./cluster-preparation.md)
+2. [establishing trust](./establishing-trust.md) between the clusters
+3. [deploying cockroachdb](./cockroachdb.md)
 
 
 
