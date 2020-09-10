@@ -8,4 +8,5 @@ aws_key: ${aws_key}
 docker_pull_secret: 
   ${pull_secret}
 cluster_network_cidr: ${network_cidr}
-service_network_cidr: ${service_cidr}  
+service_network_cidr: ${service_cidr}
+clusterReleaseImage: ${cluster_release_image}

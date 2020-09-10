@@ -23,6 +23,6 @@ spec:
     sshPrivateKeySecretRef:
       name: {{ template "acm-aws-cluster.fullname" . }}-ssh-private-key
     imageSetRef:
-      name: {{ template "acm-aws-cluster.fullname" . }}-ocp4.4.0-x86-64 #quay.io/openshift-release-dev/ocp-release:4.4.0-x86_64
+      name: {{ template "acm-aws-cluster.fullname" . }}
   pullSecretRef:
     name: {{ template "acm-aws-cluster.fullname" . }}-docker-pull-secret  

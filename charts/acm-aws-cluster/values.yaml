@@ -6,6 +6,7 @@
 # aws_id: ""
 # aws_key: ""
 # docker_pull_secret: ""
+# clusterReleaseImage: ""
 
 
 install_config:

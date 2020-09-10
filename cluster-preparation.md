@@ -10,8 +10,6 @@ This step has the followign reprequisites:
 ## Deploy RHACM
 
 ```shell
-export docker_username=<rhacm_docker_username>
-export docker_password=<rhacm_docker_password>
 oc new-project open-cluster-management
 oc apply -f ./acm/operator.yaml -n open-cluster-management
 oc apply -f ./acm/acm.yaml -n open-cluster-management
@@ -30,6 +28,7 @@ export aws_id=$(cat ~/.aws/credentials | grep aws_access_key_id | cut -d'=' -f 2
 export aws_key=$(cat ~/.aws/credentials | grep aws_secret_access_key | cut -d'=' -f 2)
 export base_domain=$(oc get dns cluster -o jsonpath='{.spec.baseDomain}')
 export base_domain=${base_domain#*.}
+export cluster_release_image=quay.io/openshift-release-dev/ocp-release:$(oc get clusteroperator config-operator -o jsonpath='{.status.versions[0].version}')-x86_64
 ```
 
 create clusters
@@ -54,11 +53,27 @@ envsubst < ./acm/acm-cluster-values.yaml > /tmp/values.yaml
 helm upgrade cluster3 ./charts/acm-aws-cluster --create-namespace -i -n cluster3  -f /tmp/values.yaml
 ```
 
-Wait about 40 minutes.
+Wait until the clusters are ready (about 40 minutes). You can watch the progress with the following command:
+
+```shell
+watch oc get clusterdeployment --all-namespaces
+```
 
 At this point your architecture should look like the below image:
 
 ![RHACM](./media/RHACM.png)
+
+Collect the cluster metadata. This is useful if something goes wrong and you need to force the deletion of the clusters.
+
+```shell
+for cluster in cluster1 cluster2 cluster3; do
+  export cluster_name=$(oc get secret ${cluster}-install-config -n ${cluster} -o jsonpath='{.data.install-config\.yaml}' | base64 -d | yq -r .metadata.name )
+  export cluster_id=$(oc get clusterdeployment ${cluster} -n ${cluster} -o jsonpath='{.spec.clusterMetadata.clusterID}')
+  export region=$(oc get clusterdeployment ${cluster} -n ${cluster} -o jsonpath='{.spec.platform.aws.region}')
+  export infra_id=$(oc get clusterdeployment ${cluster} -n ${cluster} -o jsonpath='{.spec.clusterMetadata.infraID}')
+  envsubst < ./acm/metadata.tpl.json > ./${cluster}-metadata.json
+done
+```
 
 ### Prepare login config contexts
 
@@ -67,10 +82,15 @@ export control_cluster=$(oc config current-context)
 for cluster in cluster1 cluster2 cluster3; do
   password=$(oc --context ${control_cluster} get secret $(oc --context ${control_cluster} get clusterdeployment ${cluster} -n ${cluster} -o jsonpath='{.spec.clusterMetadata.adminPasswordSecretRef.name}') -n ${cluster} -o jsonpath='{.data.password}' | base64 -d)
   url=$(oc --context ${control_cluster} get clusterdeployment ${cluster} -n ${cluster} -o jsonpath='{.status.apiURL}')
-  oc login -u kubeadmin -p ${password} --insecure-skip-tls-verify=true ${url} 
+  console_url=$(oc --context ${control_cluster} get clusterdeployment ${cluster} -n ${cluster} -o jsonpath='{.status.webConsoleURL}')
+  oc login -u kubeadmin -p ${password} --insecure-skip-tls-verify=true ${url}
   oc config set-cluster ${cluster} --insecure-skip-tls-verify=true --server ${url}
   oc config set-credentials admin-${cluster} --token $(oc whoami -t)
   oc config set-context $cluster --cluster ${cluster} --user=admin-${cluster}
+  echo cluster: ${cluster}
+  echo api url: ${url}
+  echo console url ${console_url}
+  echo admin account: kubeadmin/${password}
   export ${cluster}=$cluster
 done
 oc config use-context ${control_cluster}
@@ -100,7 +120,7 @@ This will create a global zone called `global.<cluster-base-domain>` with associ
 export cluster_base_domain=$(oc --context ${control_cluster} get dns cluster -o jsonpath='{.spec.baseDomain}')
 export cluster_zone_id=$(oc --context ${control_cluster} get dns cluster -o jsonpath='{.spec.publicZone.id}')
 export global_base_domain=global.${cluster_base_domain#*.}
-aws route53 create-hosted-zone --name ${global_base_domain} --caller-reference $(date +"%m-%d-%y-%H-%M-%S-%N") 
+aws route53 create-hosted-zone --name ${global_base_domain} --caller-reference $(date +"%m-%d-%y-%H-%M-%S-%N")
 export global_zone_res=$(aws route53 list-hosted-zones-by-name --dns-name ${global_base_domain} | jq -r .HostedZones[0].Id )
 export global_zone_id=${global_zone_res##*/}
 export delegation_record=$(aws route53 list-resource-record-sets --hosted-zone-id ${global_zone_id} | jq .ResourceRecordSets[0])
@@ -194,7 +214,7 @@ done
 subctl deploy-broker --kubecontext ${control_cluster} --service-discovery
 mv broker-info.subm /tmp/broker-info.subm
 for context in ${cluster1} ${cluster2} ${cluster3}; do
-  subctl join --kubecontext ${context} /tmp/broker-info.subm --no-label --clusterid $(echo ${context} | cut -d "/" -f2 | cut -d "-" -f2)
+  subctl join --kubecontext ${context} /tmp/broker-info.subm --no-label --clusterid $(echo ${context} | cut -d "/" -f2 | cut -d "-" -f2) --version devel
 done
 ```
 
@@ -209,3 +229,23 @@ done
 At this point your architecture should look like the below image:
 
 ![Network Tunnel](./media/Submariner.png)
+
+## Cleaning up
+
+If you need to uninstall the clusters, run the following:
+
+```shell
+for cluster in cluster1 cluster2 cluster3; do
+  oc delete clusterdeployment ${cluster} -n ${cluster}
+done
+```
+
+if for any reason that does not work, run the following:
+
+```shell
+for cluster in cluster1 cluster2 cluster3; do
+  mkdir -p ./${cluster}
+  cp ${cluster}-metadata.json ./${cluster}/medatada.json
+  openshift-install  destroy cluster --log-level=debug --dir ./${cluster}
+done
+```

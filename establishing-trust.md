@@ -15,8 +15,6 @@ aws kms tag-resource --key-id ${key-id} --tags TagKey=name,TagValue=vault-key
 oc --context ${control_cluster} new-project vault
 oc --context ${control_cluster} create secret generic vault-kms -n vault --from-literal=key_id=${key_id}
 oc --context ${control_cluster} apply -f ./vault/vault-control-cluster-certs.yaml -n vault
-export rootca_crt=$(oc --context ${control_cluster} get secret rootca -n vault -o jsonpath='{.data.tls\.crt}')
-export rootca_key=$(oc --context ${control_cluster} get secret rootca -n vault -o jsonpath='{.data.tls\.key}')
 ```
 
 ### Deploy cert-manager and cert-utils-operator
@@ -49,7 +47,7 @@ done
 ### Initialize Vault (run once-only)
 
 ```shell
-HA_INIT_RESPONSE=$(oc --context ${cluster1} exec vault-0 -n vault -- vault operator init -address https://vault-0.cluster-1.vault-internal.vault.svc.clusterset.local:8200 -ca-path /etc/vault-tls/vault-tls/ca.crt -format=json -recovery-shares 1 -recovery-threshold 1)
+HA_INIT_RESPONSE=$(oc --context ${cluster1} exec vault-0 -n vault -- vault operator init -address https://vault-0.cluster1.vault-internal.vault.svc.clusterset.local:8200 -ca-path /etc/vault-tls/vault-tls/ca.crt -format=json -recovery-shares 1 -recovery-threshold 1)
 
 HA_UNSEAL_KEY=$(echo "$HA_INIT_RESPONSE" | jq -r .recovery_keys_b64[0])
 HA_VAULT_TOKEN=$(echo "$HA_INIT_RESPONSE" | jq -r .root_token)
@@ -64,7 +62,7 @@ oc --context ${control_cluster} create secret generic vault-init -n vault --from
 ### Verify Vault Cluster Health
 
 ```shell
-oc --context ${cluster1} exec vault-0 -n vault -- sh -c "VAULT_TOKEN=${HA_VAULT_TOKEN} vault operator raft list-peers -address https://vault-0.cluster-1.vault-internal.vault.svc.clusterset.local:8200 -ca-path /etc/vault-tls/vault-tls/ca.crt"
+oc --context ${cluster1} exec vault-0 -n vault -- sh -c "VAULT_TOKEN=${HA_VAULT_TOKEN} vault operator raft list-peers -address https://vault-0.cluster1.vault-internal.vault.svc.clusterset.local:8200 -ca-path /etc/vault-tls/vault-tls/ca.crt"
 ```
 
 ### Testing vault external connectivity

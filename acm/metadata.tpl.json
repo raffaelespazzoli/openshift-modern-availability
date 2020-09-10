@@ -1,0 +1,16 @@
+{
+  "clusterName": "${cluster_name}",
+  "clusterID": "${cluster_id}",
+  "infraID": "${infra_id}",
+  "aws": {
+    "region": "${region}",
+    "identifier": [
+      {
+        "kubernetes.io/cluster/${infra_id}": "owned"
+      },
+      {
+        "openshiftClusterID": "${cluster_id}"
+      }
+    ]
+  }
+}
