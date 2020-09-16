@@ -4,11 +4,13 @@ metadata:
   name: {{ template "cockroachdb-multicluster.fullname" . }}-root-client
 spec:
   # Secret names are always required.
-  secretName: {{ template "cockroachdb-multicluster.fullname" . }}-tls-root-client
+  secretName: cockroachdb-tls-root-client
   commonName: root
   usages:
     - client auth  
   dnsNames: []
+  duration: 168h
+  renewBefore: 1h
   issuerRef:
     name: vault-issuer
     # We can reference ClusterIssuers by changing the kind here.

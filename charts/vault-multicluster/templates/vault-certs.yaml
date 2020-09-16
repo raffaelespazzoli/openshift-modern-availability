@@ -34,6 +34,11 @@ spec:
 {{- range (until ($replicas | int) ) }}
   - vault-{{ . }}.{{ $clusterName }}.vault-internal.{{ $namespace }}.svc.clusterset.local
 {{- end }}
+{{- end }}
+{{- range (until ($replicas | int) ) }}
+  - vault-{{ . }}.vault-internal
+  - vault-{{ . }}.vault-internal.{{ $namespace }}.svc
+  - vault-{{ . }}.vault-internal.{{ $namespace }}.svc.cluster.local
 {{- end }}   
   - vault
   - vault.vault.svc

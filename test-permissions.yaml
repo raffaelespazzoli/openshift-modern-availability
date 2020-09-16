@@ -1,0 +1,41 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: test-secret-perms
+stringData:
+  expect_0700: "should be 0700"
+  expect_0400: "should be 0400"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-secret-perms
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: test-secret-perms
+  template:
+    metadata:
+      labels:
+        app: test-secret-perms
+    spec:
+      containers:
+      - name: test
+        image: ubuntu
+        command: [ "sh", "-c", "while true; do ls -ldH /test/*; sleep 60; done" ]                                                                                         
+        volumeMounts:
+        - name: secret
+          mountPath: /test
+      volumes:
+      - name: secret
+        secret:
+          secretName: test-secret-perms
+          defaultMode: 256
+          items:
+            - key: "expect_0700"
+              path: "expect_0700"
+              mode: 448
+            - key: "expect_0400"
+              path: "expect_0400"
+              # no mode 

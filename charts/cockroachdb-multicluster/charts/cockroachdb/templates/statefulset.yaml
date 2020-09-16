@@ -50,6 +50,10 @@ spec:
         - name: {{ template "cockroachdb.fullname" . }}.init-certs.registry
       {{- end }}
     {{- end }}
+      securityContext:
+        runAsUser: {{ .Values.uid }}
+        runAsGroup: {{ .Values.guid }}
+        fsGroup: {{ .Values.guid }}
     {{- if .Values.tls.enabled }}
       serviceAccountName: {{ template "cockroachdb.tls.serviceAccount.name" . }}
       {{- if not .Values.tls.certs.provided }}
@@ -141,6 +145,39 @@ spec:
       # needed for graceful shutdown of a node.
       terminationGracePeriodSeconds: 60
       containers:
+        {{- if .Values.tls.enabled }}
+        {{- if .Values.tls.certs.provided }}
+        {{- if .Values.tls.certs.tlsSecret }}        
+        - name: certs-reloader
+          image: ubi8:latest
+          command:
+            - /usr/bin/bash
+          args:
+            - -c
+            - /script/certs-reload.sh
+          env:
+            - name: CERT
+              value: /certs/tls.crt
+            - name: DST_CERT
+              value: /crdb-certs/node.crt              
+            - name: KEY 
+              value: /certs/tls.key
+            - name: DST_KEY 
+              value: /crdb-certs/node.key              
+            - name: CA
+              value: /certs/ca.crt
+            - name: DST_CA
+              value: /crdb-certs/ca.crt              
+          volumeMounts:
+          - name: cert-reload-config
+            mountPath: /script
+          - name: certs-tls
+            mountPath: /certs
+          - name: certs
+            mountPath: /crdb-certs
+        {{- end }}
+        {{- end }}
+        {{- end }}        
         - name: db
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy | quote }}
@@ -177,7 +214,8 @@ spec:
                   ${STATEFULSET_NAME}-{{ $i }}.${STATEFULSET_FQDN}:{{ $.Values.service.ports.grpc.internal.port | int64 -}}
                 {{- end -}}
               {{- end }}
-              --advertise-host=$(hostname).${STATEFULSET_FQDN}
+              --advertise-addr=$(hostname).{{ .Values.cluster }}.cockroachdb.cockroachdb.svc.clusterset.local
+              --locality-advertise-addr={{ .Values.conf.locality }}@$(hostname).${STATEFULSET_FQDN}
             {{- with index .Values.conf `cluster-name` }}
               --cluster-name={{ . }}
             {{- if index $.Values.conf `disable-cluster-name-verification` }}
@@ -272,23 +310,21 @@ spec:
           emptyDir: {}
         {{- end }}
       {{- if .Values.tls.enabled }}
+      {{- if .Values.tls.certs.provided }}
+      {{- if .Values.tls.certs.tlsSecret }}
+        - name: certs-tls
+          secret:
+            secretName: {{ template "cockroachdb.fullname" . }}-tls
+        - name: cert-reload-config
+          configMap:
+            name: {{ template "cockroachdb.fullname" . }}-certs-reload
+            defaultMode: 0770          
+      {{- end }}
+      {{- end }}      
         - name: certs
           {{- if .Values.tls.certs.provided }}
           {{- if .Values.tls.certs.tlsSecret }}
-          projected:
-            sources:
-            - secret:
-                name: {{ .Values.tls.certs.nodeSecret }}
-                items:
-                - key: ca.crt
-                  path: ca.crt
-                  mode: 0400
-                - key: tls.crt
-                  path: node.crt
-                  mode: 0400
-                - key: tls.key
-                  path: node.key
-                  mode: 0400
+          emptyDir: {}      
           {{- else }}
           secret:
             secretName: {{ .Values.tls.certs.nodeSecret }}

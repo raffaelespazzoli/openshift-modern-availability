@@ -1,4 +1,5 @@
 {{- if not (index .Values.conf `single-node`) }}
+{{- if not ( and .Values.tls.enabled (and .Values.tls.certs.provided  .Values.tls.certs.tlsSecret)) }}
 kind: Job
 apiVersion: batch/v1
 metadata:
@@ -154,4 +155,5 @@ spec:
           emptyDir: {}
           {{- end }}
     {{- end }}
+{{- end }}
 {{- end }}

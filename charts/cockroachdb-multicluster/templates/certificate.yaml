@@ -4,7 +4,7 @@ metadata:
   name: {{ template "cockroachdb-multicluster.fullname" . }}
 spec:
   # Secret names are always required.
-  secretName: {{ template "cockroachdb-multicluster.fullname" . }}-tls
+  secretName: cockroachdb-tls
   commonName: node
   usages:
     - server auth
@@ -12,12 +12,19 @@ spec:
   dnsNames:
 {{- $fullname := .Values.cockroachdb.fullnameOverride -}}
 {{- $namespace := .Release.Namespace  -}}
-{{- range .Values.clusters }}
+{{- $cockroachdb := .Values.cockroachdb }}
+{{- range .Values.clusterNames }}
 {{- $cluster:= . }}    
-{{- range until (int .Values.statefulset.replicas) }}
-  - {{ $fullname }}-{{ . }}.{{ $clusterName }}.{{ $fullname }}.{{ $namespace }}.svc.clusterset.local
+{{- range until (int $cockroachdb.statefulset.replicas) }}
+  - {{ $fullname }}-{{ . }}.{{ $cluster }}.{{ $fullname }}.{{ $namespace }}.svc.clusterset.local
 {{- end }}
 {{- end }}
+{{- range until (int .Values.cockroachdb.statefulset.replicas) }}
+  - {{ $fullname }}-{{ . }}.{{ $fullname }}.{{ $namespace }}.svc.cluster.local
+  - {{ $fullname }}-{{ . }}.{{ $fullname }}.{{ $namespace }}.svc
+{{- end }}
+  duration: 168h
+  renewBefore: 1h
   issuerRef:
     name: vault-issuer
     # We can reference ClusterIssuers by changing the kind here.

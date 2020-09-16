@@ -15,6 +15,9 @@ vault:
   ui:
     enabled: true
   server:
+    multicluster:
+      enabled: true
+      cluster: ${cluster}
     extraSecretEnvironmentVars:
       - envName: AWS_SECRET_ACCESS_KEY
         secretName: vault-aws-kms-credentials

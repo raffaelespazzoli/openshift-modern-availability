@@ -6,14 +6,22 @@ In this step we are going to deploy cockroachdb
 
 ### Deploy CRDB
 
+this is a good source of info for fixing the crdb helm chart with regards to permissions to the cert files:
+https://github.com/kubernetes/kubernetes/issues/34982
+
+
 ```shell
 helm repo add cockroachdb https://charts.cockroachdb.com/
 helm dependency update ./charts/vault-multicluster
 export cluster_base_domain=$(oc --context ${control_cluster} get dns cluster -o jsonpath='{.spec.baseDomain}')
 export global_base_domain=global.${cluster_base_domain#*.}
 for context in ${cluster1} ${cluster2} ${cluster3}; do
+  oc --context ${context} new-project cockroachdb
+  export uid=$(oc --context ${context} get project cockroachdb -o jsonpath='{.metadata.annotations.openshift\.io/sa\.scc\.uid-range}'|sed 's/\/.*//')
+  export guid=$(oc --context ${context} get project cockroachdb -o jsonpath='{.metadata.annotations.openshift\.io/sa\.scc\.supplemental-groups}'|sed 's/\/.*//')
+  export cluster=${context}
   envsubst < ./cockroachdb/values.templ.yaml > /tmp/values.yaml
-  helm --kube-context ${context} upgrade cockroachdb ./charts/cockroachdb-multicluster -i --create-namespace -n cockroachdb -f /tmp/values.yaml --set conf.locality=cluster=$(echo ${context} | cut -d "/" -f2 | cut -d "-" -f2)
+  helm --kube-context ${context} upgrade cockroachdb ./charts/cockroachdb-multicluster -i --create-namespace -n cockroachdb -f /tmp/values.yaml
 done
 ```
 
@@ -55,4 +63,15 @@ export VAULT_TOKEN=$(oc --context ${control_cluster} get secret vault-init -n va
 vault secrets enable database
 vault write database/config/cockroachdb plugin_name=postgresql-database-plugin allowed_roles="cockroachdb-role" connection_url="postgresql://{{username}}:{{password}}@cockroachdb-public.cockroachdb.svc.clusterset.local:5432/" username="admin" password="admin"
 vault write database/roles/cockroachdb-role db_name=cockroachdb creation_statements="CREATE ROLE \"{{name}}\" WITH LOGIN PASSWORD '{{password}}' VALID UNTIL '{{expiration}}'; GRANT SELECT ON ALL TABLES IN SCHEMA public TO \"{{name}}\";" default_ttl="24h" max_ttl="7d"
+```
+
+## clean-up
+
+delete crds
+
+```shell
+for context in ${cluster1} ${cluster2} ${cluster3}; do
+  helm --kube-context ${context} uninstall cockroachdb -n cockroachdb 
+  oc --context ${context} delete pvc datadir-cockroachdb-0 datadir-cockroachdb-1 datadir-cockroachdb-2 -n cockroachdb
+done
 ```

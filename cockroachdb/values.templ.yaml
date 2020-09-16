@@ -7,17 +7,20 @@ global_base_domain: ${global_base_domain}
 
 
 cockroachdb:
+  cluster: ${cluster}
+  uid: ${uid}
   conf:
+    locality: cluster=${cluster}
     join: 
-      - cockroachdb-0.cluster-1.cockroachdb.cockroachdb.svc.clusterset.local
-      - cockroachdb-1.cluster-1.cockroachdb.cockroachdb.svc.clusterset.local
-      - cockroachdb-2.cluster-1.cockroachdb.cockroachdb.svc.clusterset.local
-      - cockroachdb-0.cluster-2.cockroachdb.cockroachdb.svc.clusterset.local
-      - cockroachdb-1.cluster-2.cockroachdb.cockroachdb.svc.clusterset.local
-      - cockroachdb-2.cluster-2.cockroachdb.cockroachdb.svc.clusterset.local
-      - cockroachdb-0.cluster-3.cockroachdb.cockroachdb.svc.clusterset.local
-      - cockroachdb-1.cluster-3.cockroachdb.cockroachdb.svc.clusterset.local
-      - cockroachdb-2.cluster-3.cockroachdb.cockroachdb.svc.clusterset.local            
+      - cockroachdb-0.cluster1.cockroachdb.cockroachdb.svc.clusterset.local
+      - cockroachdb-1.cluster1.cockroachdb.cockroachdb.svc.clusterset.local
+      - cockroachdb-2.cluster1.cockroachdb.cockroachdb.svc.clusterset.local
+      - cockroachdb-0.cluster2.cockroachdb.cockroachdb.svc.clusterset.local
+      - cockroachdb-1.cluster2.cockroachdb.cockroachdb.svc.clusterset.local
+      - cockroachdb-2.cluster2.cockroachdb.cockroachdb.svc.clusterset.local
+      - cockroachdb-0.cluster3.cockroachdb.cockroachdb.svc.clusterset.local
+      - cockroachdb-1.cluster3.cockroachdb.cockroachdb.svc.clusterset.local
+      - cockroachdb-2.cluster3.cockroachdb.cockroachdb.svc.clusterset.local            
   fullnameOverride: cockroachdb
   statefulset:
     replicas: 3

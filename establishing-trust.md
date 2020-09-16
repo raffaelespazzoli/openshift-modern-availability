@@ -37,8 +37,9 @@ export key_id=$(oc --context ${control_cluster} get secret vault-kms -n vault -o
 export region=$(oc --context ${control_cluster} get infrastructure cluster -o jsonpath='{.status.platformStatus.aws.region}')
 export cluster_base_domain=$(oc --context ${control_cluster} get dns cluster -o jsonpath='{.spec.baseDomain}')
 export global_base_domain=global.${cluster_base_domain#*.}
-helm dependency update ./charts/vault-multicluster
+#helm dependency update ./charts/vault-multicluster
 for context in ${cluster1} ${cluster2} ${cluster3}; do
+  export cluster=${context}
   envsubst < ./vault/kms-values.yaml.template > /tmp/values.yaml
   helm --kube-context ${context} upgrade vault ./charts/vault-multicluster -i --create-namespace -n vault -f /tmp/values.yaml
 done
@@ -69,7 +70,7 @@ oc --context ${cluster1} exec vault-0 -n vault -- sh -c "VAULT_TOKEN=${HA_VAULT_
 
 ```shell
 export VAULT_ADDR=https://vault.${global_base_domain}
-export VAULT_TOKEN=$(oc --context ${control_cluster} get secret vault-init -n vault -o jsonpath '{data.root_token}' | base64 -d )
+export VAULT_TOKEN=$(oc --context ${control_cluster} get secret vault-init -n vault -o jsonpath='{.data.root_token}' | base64 -d )
 vault status -tls-skip-verify
 ```
 
@@ -93,13 +94,14 @@ With this integration we enable the previously installed cert-manager to create 
 
 ```shell
 export VAULT_ADDR=https://vault.${global_base_domain}
-export VAULT_TOKEN=$(oc --context ${control_cluster} get secret vault-init -n vault -o jsonpath '{data.root_token}'| base64 -d )
+export VAULT_TOKEN=$(oc --context ${control_cluster} get secret vault-init -n vault -o jsonpath='{.data.root_token}'| base64 -d )
 for context in ${cluster1} ${cluster2} ${cluster3}; do
-  export clusterid=$(echo ${context} | cut -d "/" -f2 | cut -d "-" -f2)
-  vault auth enable -tls-skip-verify kubernetes --path=kubernetes-${clusterid}
+  export clusterid=${context}
+  vault auth enable -tls-skip-verify -path=kubernetes-${clusterid} kubernetes 
   export sa_secret_name=$(oc --context ${context} get sa vault -n vault -o jsonpath='{.secrets[*].name}' | grep -o '\b\w*\-token-\w*\b')
+  export api_url=$(oc --context ${control_cluster} get clusterdeployment ${context} -n ${context} -o jsonpath='{.status.apiURL}')
   oc --context ${context} get secret ${sa_secret_name} -n vault -o jsonpath='{.data.ca\.crt}' | base64 -d > /tmp/ca.crt
-  vault write -tls-skip-verify auth/kubernetes-${clusterid}/config token_reviewer_jwt="$(oc --context ${context} serviceaccounts get-token vault -n vault)" kubernetes_host=https://kubernetes.default.svc:443 kubernetes_ca_cert=@/tmp/ca.crt
+  vault write -tls-skip-verify auth/kubernetes-${clusterid}/config token_reviewer_jwt="$(oc --context ${context} serviceaccounts get-token vault -n vault)" kubernetes_host=${api_url} kubernetes_ca_cert=@/tmp/ca.crt
   vault write -tls-skip-verify auth/kubernetes-${clusterid}/role/cert-manager bound_service_account_names=default bound_service_account_namespaces=cert-manager policies=default,cert-manager
 done
 ```
@@ -112,7 +114,7 @@ export VAULT_TOKEN=$(oc --context ${control_cluster} get secret vault-init -n va
 vault secrets enable -tls-skip-verify pki
 vault write -tls-skip-verify pki/root/generate/internal common_name=cert-manager.cluster.local
 vault write -tls-skip-verify pki/config/urls issuing_certificates="http://vault.vault.svc:8200/v1/pki/ca" crl_distribution_points="http://vault.vault.svc:8200/v1/pki/crl"
-vault write -tls-skip-verify pki/roles/cert-manager allowed_domains=svc,svc.cluster.local allow_subdomains=true allow_localhost=false
+vault write -tls-skip-verify pki/roles/cert-manager allowed_domains=svc,svc.cluster.local,svc.clusterset.local,node,root allow_bare_domains=true allow_subdomains=true allow_localhost=false enforce_hostnames=false
 vault policy write -tls-skip-verify cert-manager ./vault/cert-manager-policy.hcl
 ```
 
@@ -122,7 +124,18 @@ vault policy write -tls-skip-verify cert-manager ./vault/cert-manager-policy.hcl
 for context in ${cluster1} ${cluster2} ${cluster3}; do
   export vault_ca=$(oc --context ${context} get secret vault-tls -n vault -o jsonpath='{.data.ca\.crt}')
   export sa_secret_name=$(oc --context ${context} get sa default -n cert-manager -o jsonpath='{.secrets[*].name}' | grep -o '\b\w*\-token-\w*\b')
-  export clusterid=$(echo ${context} | cut -d "/" -f2 | cut -d "-" -f2)
-  envsubst < vault-issuer.yaml | oc --context ${context} apply -f - -n cert-manager
+  export cluster=${context}
+  envsubst < ./vault/vault-issuer.yaml | oc --context ${context} apply -f - -n cert-manager
+done  
+```
+
+## Clean up Vault
+
+Use this to clean up vault:
+
+```shell
+for context in ${cluster1} ${cluster2} ${cluster3}; do
+  helm --kube-context ${context} uninstall vault -n vault
+  oc --context ${context} delete pvc data-vault-0 data-vault-1 data-vault-2 -n vault
 done  
 ```

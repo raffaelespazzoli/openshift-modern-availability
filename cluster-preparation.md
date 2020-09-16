@@ -230,6 +230,15 @@ At this point your architecture should look like the below image:
 
 ![Network Tunnel](./media/Submariner.png)
 
+## Restarting submariner pods
+
+```shell
+for context in ${cluster1} ${cluster2} ${cluster3}; do
+  oc --context ${context} rollout restart daemonset -n submariner-operator
+  oc --context ${context} rollout restart deployment -n submariner-operator
+done
+```
+
 ## Cleaning up
 
 If you need to uninstall the clusters, run the following:
@@ -248,4 +257,11 @@ for cluster in cluster1 cluster2 cluster3; do
   cp ${cluster}-metadata.json ./${cluster}/medatada.json
   openshift-install  destroy cluster --log-level=debug --dir ./${cluster}
 done
+```
+
+## test file permissions
+
+```shell
+oc --context ${control_cluster} new-project file-permissions
+oc --context ${control_cluster} apply -f ./test-permissions.yaml -n file-permissions
 ```

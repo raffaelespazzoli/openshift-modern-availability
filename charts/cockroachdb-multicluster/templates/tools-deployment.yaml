@@ -64,11 +64,11 @@ spec:
       volumes:
       - name: certs-tls
         secret:
-          secretName: {{ template "cockroachdb-multicluster.fullname" . }}-tls-root-client
+          secretName: cockroachdb-tls-root-client
           defaultMode: 420
       - name: cert-reload-config
         configMap:
-          name: {{ template "cockroachdb-multicluster.fullname" . }}-certs-reload
+          name: cockroachdb-certs-reload
           defaultMode: 504
       - name: certs
         emptyDir: {}       

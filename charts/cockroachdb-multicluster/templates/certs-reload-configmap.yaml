@@ -1,0 +1,47 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cockroachdb-certs-reload
+data:
+  certs-reload.sh: | 
+    ## $CERT contains the cert to be watched
+    ## $DST_CERT contains the cert destination name
+    ## $KEY  contains the key to be watched
+    ## $DST_KEY  contains the key to be watched
+    ## $CA  contains the CA to be watched
+    ## $DST_CA  contains the CA to be watched
+
+    set -o nounset
+    set -o errexit
+
+    HASH_CERT=""
+    HASH_KEY=""
+    HASH_CA=""
+
+    while true; do
+      NEW_HASH_CERT=$(md5sum $(readlink -f $CERT))
+      if [ "$HASH_CERT" != "$NEW_HASH_CERT" ]; then
+        HASH_CERT="$NEW_HASH_CERT"
+        echo "[$(date +%s)] CERT Trigger refresh"
+        cp $CERT $DST_CERT
+        chmod 0600 $DST_CERT 
+        echo copied $CERT to $DST_CERT and changed permissions to 0600
+      fi
+      NEW_HASH_KEY=$(md5sum $(readlink -f $KEY))
+      if [ "$HASH_KEY" != "$NEW_HASH_KEY" ]; then
+        HASH_KEY="$NEW_HASH_KEY"
+        echo "[$(date +%s)] KEY Trigger refresh"
+        cp $KEY $DST_KEY
+        chmod 0600 $DST_KEY 
+        echo copied $KEY to $DST_KEY and changed permissions to 0600
+      fi
+      NEW_HASH_CA=$(md5sum $(readlink -f $CA))
+      if [ "$HASH_CA" != "$NEW_HASH_CA" ]; then
+        HASH_CA="$NEW_HASH_CA"
+        echo "[$(date +%s)] CA Trigger refresh"
+        cp $CA $DST_CA
+        chmod 0600 $DST_CA 
+        echo copied $CA to $DST_CA and changed permissions to 0600
+      fi                
+      sleep 5
+    done

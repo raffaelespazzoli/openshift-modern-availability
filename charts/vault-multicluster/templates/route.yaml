@@ -9,7 +9,7 @@ spec:
   usages:
     - server auth
   dnsNames:
-  - vault-{{ .Values.global_base_domain }}
+  - vault.{{ .Values.global_base_domain }}
   issuerRef:
     name: internal-issuer
     # We can reference ClusterIssuers by changing the kind here.
@@ -29,7 +29,7 @@ metadata:
   labels:
     route-type: global  
 spec:
-  host: vault-{{ .Values.global_base_domain }}
+  host: vault.{{ .Values.global_base_domain }}
   port:
     targetPort: https
   tls:
