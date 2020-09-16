@@ -49,7 +49,7 @@ export global_base_domain=global.${cluster_base_domain#*.}
 echo cockroachdb.${global_base_domain}
 ```
 
-connect to $ui_url user admin/admin
+connect to that url user admin/admin
 
 At this point your architecture should look like the below image:
 

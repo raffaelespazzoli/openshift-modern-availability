@@ -36,6 +36,7 @@ spec:
     targetPort: http
   tls:
     termination: reencrypt
+    insecureEdgeTerminationPolicy: Redirect
   to:
     kind: Service
     name: cockroachdb-public
