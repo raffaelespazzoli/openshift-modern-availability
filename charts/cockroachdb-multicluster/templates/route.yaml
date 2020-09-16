@@ -5,11 +5,13 @@ metadata:
 spec:
   # Secret names are always required.
   secretName: {{ template "cockroachdb-multicluster.fullname" . }}-route-tls
-  commonName: {{ template "cockroachdb-multicluster.fullname" . }}
+  commonName: cockroachdb.{{ .Values.global_base_domain }}
   usages:
     - server auth
   dnsNames:
-  - {{ template "cockroachdb-multicluster.fullname" . }}.{{ .Values.global_base_domain }}
+  - cockroachdb.{{ .Values.global_base_domain }}
+  duration: 168h
+  renewBefore: 1h  
   issuerRef:
     name: vault-issuer
     # We can reference ClusterIssuers by changing the kind here.
@@ -23,17 +25,17 @@ apiVersion: route.openshift.io/v1
 kind: Route
 metadata:
   annotations:
-    cert-utils-operator.redhat-cop.io/destinationCA-from-secret: {{ template "cockroachdb-multicluster.fullname" . }}-tls
+    cert-utils-operator.redhat-cop.io/destinationCA-from-secret: cockroachdb-tls
     cert-utils-operator.redhat-cop.io/certs-from-secret: {{ template "cockroachdb-multicluster.fullname" . }}-route-tls
   labels:
     route-type: global    
   name: {{ template "cockroachdb-multicluster.fullname" . }}
 spec:
-  host: {{ template "cockroachdb-multicluster.fullname" . }}.{{ .Values.global_base_domain }}
+  host: cockroachdb.{{ .Values.global_base_domain }}
   port:
     targetPort: http
   tls:
     termination: reencrypt
   to:
     kind: Service
-    name: {{ template "cockroachdb-multicluster.fullname" . }}-public
+    name: cockroachdb-public
