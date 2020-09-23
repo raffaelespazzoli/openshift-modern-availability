@@ -4,6 +4,22 @@ In this step we are going to deploy cockroachdb
 
 ## Deploy cockroachDB
 
+### Create adequate nodes
+
+```shell
+for context in ${cluster1} ${cluster2} ${cluster3}; do
+  export cluster_name=$(oc --context ${context} get infrastructure cluster -o jsonpath='{.status.infrastructureName}')
+  export region=$(oc --context ${context} get infrastructure cluster -o jsonpath='{.status.platformStatus.aws.region}')
+  export ami=$(oc --context ${context} get machineset -n openshift-machine-api -o jsonpath='{.items[0].spec.template.spec.providerSpec.value.ami.id}')
+  export machine_type=cockroach
+  export instance_type=c5d.4xlarge
+  for z in a b c; do
+    export zone=${region}${z}
+    envsubst < ./cockroachdb/machineset.yaml | oc --context ${context} apply -f -
+  done
+done
+```
+
 ### Deploy CRDB
 
 this is a good source of info for fixing the crdb helm chart with regards to permissions to the cert files:
@@ -37,8 +53,8 @@ oc --context ${cluster1} exec $tools_pod -c tools -n cockroachdb -- /cockroach/c
 
 ```shell
 export tools_pod=$(oc --context ${cluster1} get pods -n cockroachdb | grep tools | awk '{print $1}')
-oc --context ${cluster1} exec $tools_pod -c tools -n cockroachdb -- /cockroach/cockroach sql --execute='CREATE USER admin WITH PASSWORD admin;' --certs-dir=/crdb-certs --host cockroachdb-0.cluster1.cockroachdb.cockroachdb.svc.clusterset.local
-oc --context ${cluster1} exec $tools_pod -c tools -n cockroachdb -- /cockroach/cockroach sql --execute='GRANT admin TO admin WITH ADMIN OPTION;' --certs-dir=/crdb-certs --host cockroachdb-0.cluster1.cockroachdb.cockroachdb.svc.clusterset.local
+oc --context ${cluster1} exec $tools_pod -c tools -n cockroachdb -- /cockroach/cockroach sql --execute='CREATE USER dba WITH PASSWORD dba;' --certs-dir=/crdb-certs --host cockroachdb-0.cluster1.cockroachdb.cockroachdb.svc.clusterset.local
+oc --context ${cluster1} exec $tools_pod -c tools -n cockroachdb -- /cockroach/cockroach sql --execute='GRANT admin TO dba WITH ADMIN OPTION;' --certs-dir=/crdb-certs --host cockroachdb-0.cluster1.cockroachdb.cockroachdb.svc.clusterset.local
 ```
 
 ### Connecting to the CRDB ui
@@ -49,21 +65,69 @@ export global_base_domain=global.${cluster_base_domain#*.}
 echo cockroachdb.${global_base_domain}
 ```
 
-connect to that url user admin/admin
+connect to that url user dba/dba
 
 At this point your architecture should look like the below image:
 
 ![CRDB](./media/CRDB.png)
 
-### Setup Vault to manage CRDB's accounts
+## Run the TPCC load test
+
+https://github.com/jhatcher9999/tpcc-distributed-k8s
+
+### Deploy the enterprise license
 
 ```shell
-export VAULT_ADDR=https://vault.${global_base_domain}
-export VAULT_TOKEN=$(oc --context ${control_cluster} get secret vault-init -n vault -o jsonpath '{data.root_token}'| base64 -d )
-vault secrets enable database
-vault write database/config/cockroachdb plugin_name=postgresql-database-plugin allowed_roles="cockroachdb-role" connection_url="postgresql://{{username}}:{{password}}@cockroachdb-public.cockroachdb.svc.clusterset.local:5432/" username="admin" password="admin"
-vault write database/roles/cockroachdb-role db_name=cockroachdb creation_statements="CREATE ROLE \"{{name}}\" WITH LOGIN PASSWORD '{{password}}' VALID UNTIL '{{expiration}}'; GRANT SELECT ON ALL TABLES IN SCHEMA public TO \"{{name}}\";" default_ttl="24h" max_ttl="7d"
+source ./cockroachdb/license.sh
+oc --context ${cluster1} exec $tools_pod -c tools -n cockroachdb -- /cockroach/cockroach sql --certs-dir=/crdb-certs --host cockroachdb-0.cluster1.cockroachdb.cockroachdb.svc.clusterset.local --echo-sql --execute='SET CLUSTER SETTING cluster.organization = '\""${cluster_organization}"\"';'
+oc --context ${cluster1} exec $tools_pod -c tools -n cockroachdb -- /cockroach/cockroach sql  --certs-dir=/crdb-certs --host cockroachdb-0.cluster1.cockroachdb.cockroachdb.svc.clusterset.local --echo-sql --execute='SET CLUSTER SETTING enterprise.license = '\""${enterprise_license}"\"';'
 ```
+
+### Initialize warehouses
+
+```shell
+oc --context ${cluster1} exec $tools_pod -c tools -n cockroachdb -- /cockroach/cockroach workload init tpcc postgresql://dba:admin@cockroachdb-public.cockroachdb.svc.cluster.local:26257?sslmode=require --warehouses 1000 --partition-affinity=0 --partitions=3 --partition-strategy=leases --zones=cluster1,cluster2,cluster3
+```
+
+In case of issues, this command can be used to drop the database
+
+```shell
+oc --context ${cluster1} exec $tools_pod -c tools -n cockroachdb -- /cockroach/cockroach sql  --certs-dir=/crdb-certs --host cockroachdb-0.cluster1.cockroachdb.cockroachdb.svc.clusterset.local --echo-sql --execute='DROP DATABASE tpcc;'
+```
+
+```shell
+oc --context ${cluster2} exec $tools_pod2 -c tools -n cockroachdb -- /cockroach/cockroach debug zip  /cockroach/cockroach-certs/log.zip --certs-dir=/crdb-certs --host cockroachdb-0.cluster2.cockroachdb.cockroachdb.svc.clusterset.local
+```
+
+### Run tests
+
+open three terminals, try to start the following commands at the same time
+
+in terminal one run
+
+```shell
+export tools_pod=$(oc --context cluster1 get pods -n cockroachdb | grep tools | awk '{print $1}')
+oc --context cluster1 exec $tools_pod -c tools -n cockroachdb -- /cockroach/cockroach workload run tpcc postgresql://dba:admin@cockroachdb-public.cockroachdb.svc.cluster.local:26257?sslmode=require --duration=60m --warehouses 1000 --ramp=180s --partition-affinity=0 --partitions=3 --partition-strategy=leases
+```
+
+in terminal two run:
+
+```shell
+export tools_pod=$(oc --context cluster2 get pods -n cockroachdb | grep tools | awk '{print $1}')
+oc --context cluster2 exec $tools_pod -c tools -n cockroachdb -- /cockroach/cockroach workload run tpcc postgresql://dba:admin@cockroachdb-public.cockroachdb.svc.cluster.local:26257?sslmode=require --duration=60m --warehouses 1000 --ramp=180s --partition-affinity=1 --partitions=3 --partition-strategy=leases
+```
+  
+in terminal three run
+
+```shell
+export tools_pod=$(oc --context cluster3 get pods -n cockroachdb | grep tools | awk '{print $1}')
+oc --context cluster3 exec $tools_pod -c tools -n cockroachdb -- /cockroach/cockroach workload run tpcc postgresql://dba:admin@cockroachdb-public.cockroachdb.svc.cluster.local:26257?sslmode=require --duration=60m --warehouses 1000 --ramp=180s --partition-affinity=2 --partitions=3 --partition-strategy=leases
+```
+  
+  
+'postgresql://root@cockroachdb-public:26257?sslmode=verify-full&sslcert=/cockroach-certs/client.root.crt&sslkey=/cockroach-certs/client.root.key&sslrootcert=/cockroach-certs/ca.crt'
+
+'postgresql://root@cockroachdb-public:26257?sslmode=verify-full&sslcert=/cockroach-certs/client.root.crt&sslkey=/cockroach-certs/client.root.key&sslrootcert=/cockroach-certs/ca.crt'
 
 ## clean-up
 
@@ -75,3 +139,7 @@ for context in ${cluster1} ${cluster2} ${cluster3}; do
   oc --context ${context} delete pvc datadir-cockroachdb-0 datadir-cockroachdb-1 datadir-cockroachdb-2 -n cockroachdb
 done
 ```
+
+
+SET CLUSTER SETTING cluster.organization = 'Acme Company';
+SET CLUSTER SETTING enterprise.license = 'crl-0-ChBkwDqH6TJL8pgttSTmBbKpEJ/brPwFGAE';

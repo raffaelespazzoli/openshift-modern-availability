@@ -7,6 +7,7 @@ global_base_domain: ${global_base_domain}
 
 
 cockroachdb:
+
   cluster: ${cluster}
   uid: ${uid}
   conf:
@@ -24,16 +25,23 @@ cockroachdb:
   fullnameOverride: cockroachdb
   statefulset:
     replicas: 3
-  podAffinity:
-    preferredDuringSchedulingIgnoredDuringExecution:
-      - weight: 100
-        podAffinityTerm:
-          labelSelector:
-            matchLabels:
-              app.kubernetes.io/component: cockroachdb
-              app.kubernetes.io/instance: cockroachdb
-              app.kubernetes.io/name: cockroachdb
-          topologyKey: failure-domain.beta.kubernetes.io/zone
+    tolerations:
+      - key: "workload"
+        operator: "Equal"
+        value: "cockroach"
+        effect: "NoSchedule"
+    nodeSelector:
+      workload: cockroach    
+    # podAntiAffinity:
+    #   preferredDuringSchedulingIgnoredDuringExecution:
+    #     - weight: 100
+    #       podAffinityTerm:
+    #         labelSelector:
+    #           matchLabels:
+    #             app.kubernetes.io/component: cockroachdb
+    #             app.kubernetes.io/instance: cockroachdb
+    #             app.kubernetes.io/name: cockroachdb
+    #         topologyKey: failure-domain.beta.kubernetes.io/zone
 
   tls:
     enabled: yes

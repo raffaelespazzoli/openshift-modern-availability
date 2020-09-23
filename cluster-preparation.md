@@ -171,7 +171,7 @@ for context in ${cluster1} ${cluster2} ${cluster3}; do
 done
 ```
 
-### Deploy submariner via helm chart (do not use)
+### Deploy submariner via helm chart (do not use, it doesn't work)
 
 ```shell
 helm repo add submariner-latest https://submariner-io.github.io/submariner-charts/charts
@@ -208,13 +208,21 @@ for context in ${cluster1} ${cluster2} ${cluster3}; do
 done
 ```
 
-### Deploy submariner via CLI
+### Deploy submariner via CLI (use this for now)
 
 ```shell
 subctl deploy-broker --kubecontext ${control_cluster} --service-discovery
 mv broker-info.subm /tmp/broker-info.subm
 for context in ${cluster1} ${cluster2} ${cluster3}; do
   subctl join --kubecontext ${context} /tmp/broker-info.subm --no-label --clusterid $(echo ${context} | cut -d "/" -f2 | cut -d "-" -f2) --version devel
+done
+```
+
+patch to work around: https://github.com/submariner-io/submariner/issues/828
+
+```shell
+for context in ${cluster1} ${cluster2} ${cluster3}; do
+  oc --context ${context} patch daemonset submariner-routeagent -n submariner-operator -p '{"spec":{"template":{"spec":{"tolerations":[{"operator":"Exists"}]}}}}'
 done
 ```
 
@@ -236,6 +244,18 @@ At this point your architecture should look like the below image:
 for context in ${cluster1} ${cluster2} ${cluster3}; do
   oc --context ${context} rollout restart daemonset -n submariner-operator
   oc --context ${context} rollout restart deployment -n submariner-operator
+done
+```
+
+## Install kube-ops-view
+
+This can be useful to quickly troubleshoot issues
+
+```shell
+for context in ${cluster1} ${cluster2} ${cluster3}; do
+  export OCP_OPS_VIEW_ROUTE=ocp-ops-view.apps.$(oc --context ${context} get dns cluster -o jsonpath='{.spec.baseDomain}')
+  helm --kube-context ${context} upgrade kube-ops-view stable/kube-ops-view -i --create-namespace -n ocp-ops-view --set redis.enabled=true --set rbac.create=true --set ingress.enabled=true --set ingress.hostname=$OCP_OPS_VIEW_ROUTE --set redis.master.port=6379
+  oc --context ${context} adm policy add-scc-to-user anyuid -z default -n ocp-ops-view
 done
 ```
 

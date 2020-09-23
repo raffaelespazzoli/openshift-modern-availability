@@ -1,0 +1,71 @@
+{{- $values:= . }}
+{{- range .Values.zones }}
+{{- $zone:= . }}
+{{- $currentMachine:= {} }}
+{{- range lookup "machine.openshift.io/v1beta1" "MachineSet" "openshift-machine-api" "" }}
+{{- if .spec.template.spec.providerSpec.placement.availabilityZone == $zone }}
+{{- $currentMachine= .}}
+{{- end }}
+{{- end }}
+apiVersion: machine.openshift.io/v1beta1
+kind: MachineSet
+  labels:
+    hive.openshift.io/machine-pool: worker
+    machine.openshift.io/cluster-api-cluster: cluster1-acm-aws-clus-nhgxm
+  name: cluster1-acm-aws-clus-nhgxm-worker-us-east-1a
+  namespace: openshift-machine-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      machine.openshift.io/cluster-api-cluster: cluster1-acm-aws-clus-nhgxm
+      machine.openshift.io/cluster-api-machineset: cluster1-acm-aws-clus-nhgxm-worker-us-east-1a
+  template:
+    metadata:
+      labels:
+        machine.openshift.io/cluster-api-cluster: cluster1-acm-aws-clus-nhgxm
+        machine.openshift.io/cluster-api-machine-role: worker
+        machine.openshift.io/cluster-api-machine-type: worker
+        machine.openshift.io/cluster-api-machineset: cluster1-acm-aws-clus-nhgxm-worker-us-east-1a
+    spec:
+      metadata: {}
+      providerSpec:
+        value:
+          ami:
+            id: ami-08f17f5bd2210c9fa
+          apiVersion: awsproviderconfig.openshift.io/v1beta1
+          blockDevices:
+          - ebs:
+              encrypted: true
+              iops: 2000
+              kmsKey:
+                arn: ""
+              volumeSize: 100
+              volumeType: io1
+          credentialsSecret:
+            name: aws-cloud-credentials
+          deviceIndex: 0
+          iamInstanceProfile:
+            id: cluster1-acm-aws-clus-nhgxm-worker-profile
+          instanceType: m5.large
+          kind: AWSMachineProviderConfig
+          metadata:
+            creationTimestamp: null
+          placement:
+            availabilityZone: us-east-1a
+            region: us-east-1
+          securityGroups:
+          - filters:
+            - name: tag:Name
+              values:
+              - cluster1-acm-aws-clus-nhgxm-worker-sg
+          subnet:
+            filters:
+            - name: tag:Name
+              values:
+              - cluster1-acm-aws-clus-nhgxm-private-us-east-1a
+          tags:
+          - name: kubernetes.io/cluster/cluster1-acm-aws-clus-nhgxm
+            value: owned
+          userDataSecret:
+            name: worker-user-data

@@ -1,0 +1,7 @@
+allzones: false
+zones: []
+machineType: m4.large
+taints: {}
+machineSetLabels: {}
+machineLabels: {}
+nodeLabels: {}
