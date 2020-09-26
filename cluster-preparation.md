@@ -211,18 +211,11 @@ done
 ### Deploy submariner via CLI (use this for now)
 
 ```shell
+curl -Ls https://get.submariner.io | VERSION=devel bash
 subctl deploy-broker --kubecontext ${control_cluster} --service-discovery
 mv broker-info.subm /tmp/broker-info.subm
 for context in ${cluster1} ${cluster2} ${cluster3}; do
   subctl join --kubecontext ${context} /tmp/broker-info.subm --no-label --clusterid $(echo ${context} | cut -d "/" -f2 | cut -d "-" -f2) --version devel
-done
-```
-
-patch to work around: https://github.com/submariner-io/submariner/issues/828
-
-```shell
-for context in ${cluster1} ${cluster2} ${cluster3}; do
-  oc --context ${context} patch daemonset submariner-routeagent -n submariner-operator -p '{"spec":{"template":{"spec":{"tolerations":[{"operator":"Exists"}]}}}}'
 done
 ```
 
