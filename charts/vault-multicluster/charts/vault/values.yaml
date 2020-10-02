@@ -523,7 +523,8 @@ server:
     # Extra annotations for the statefulSet. This can either be YAML or a
     # YAML-formatted multi-line templated string map of the annotations to apply
     # to the statefulSet.
-    annotations: {}
+    annotations: 
+      secret.reloader.stakater.com/reload: "userconfig-vault-tls"
 
 # Vault UI
 ui:

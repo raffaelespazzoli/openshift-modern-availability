@@ -7,11 +7,15 @@ global_base_domain: ${global_base_domain}
 
 
 cockroachdb:
-
+  storage:
+    persistentVolume:
+      storageClass: cockroachdb
   cluster: ${cluster}
   uid: ${uid}
   conf:
-    locality: region=${region}
+    cache: 8GiB
+    max-sql-memory: 8GiB
+    locality: zone=${region}
     join: 
       - cockroachdb-0.cluster1.cockroachdb.cockroachdb.svc.clusterset.local
       - cockroachdb-1.cluster1.cockroachdb.cockroachdb.svc.clusterset.local

@@ -3,6 +3,8 @@ apiVersion: {{ template "cockroachdb.statefulset.apiVersion" . }}
 metadata:
   name: {{ template "cockroachdb.fullname" . }}
   namespace: {{ .Release.Namespace | quote }}
+  annotations:
+    secret.reloader.stakater.com/reload: "certs"
   labels:
     helm.sh/chart: {{ template "cockroachdb.chart" . }}
     app.kubernetes.io/name: {{ template "cockroachdb.name" . }}

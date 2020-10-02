@@ -17,6 +17,7 @@ for context in ${cluster1} ${cluster2} ${cluster3}; do
     export zone=${region}${z}
     oc --context ${context} scale machineset -n openshift-machine-api $(envsubst < ./cockroachdb/machineset.yaml | yq -r .metadata.name) --replicas 0 
     envsubst < ./cockroachdb/machineset.yaml | oc --context ${context} apply -f -
+    oc --context ${context} apply -f ./cockroachdb/storage-class.yaml
   done
 done
 ```
@@ -27,8 +28,8 @@ this is a good source of info for fixing the crdb helm chart with regards to per
 https://github.com/kubernetes/kubernetes/issues/34982
 
 ```shell
-helm repo add cockroachdb https://charts.cockroachdb.com/
-helm dependency update ./charts/vault-multicluster
+#helm repo add cockroachdb https://charts.cockroachdb.com/
+#helm dependency update ./charts/vault-multicluster
 export cluster_base_domain=$(oc --context ${control_cluster} get dns cluster -o jsonpath='{.spec.baseDomain}')
 export global_base_domain=global.${cluster_base_domain#*.}
 for context in ${cluster1} ${cluster2} ${cluster3}; do
@@ -91,12 +92,19 @@ oc --context ${cluster1} exec $tools_pod -c tools -n cockroachdb -- /cockroach/c
 export tools_pod=$(oc --context ${cluster1} get pods -n cockroachdb | grep tools | awk '{print $1}')
 oc --context ${cluster1} exec $tools_pod -c tools -n cockroachdb -- /cockroach/cockroach sql  --certs-dir=/crdb-certs --host cockroachdb-0.cluster1.cockroachdb.cockroachdb.svc.clusterset.local --echo-sql --execute="UPSERT into system.locations VALUES ('region', 'us-east-1', 37.478397, -76.453077); UPSERT into system.locations VALUES ('region', 'us-east-2', 40.417287, -76.453077); UPSERT into system.locations VALUES ('region', 'us-west-1', 38.837522, -120.895824); UPSERT into system.locations VALUES ('region', 'us-west-2', 43.804133, -120.554201); UPSERT into system.locations VALUES ('region', 'ca-central-1', 56.130366, -106.346771); UPSERT into system.locations VALUES ('region', 'eu-central-1', 50.110922, 8.682127); UPSERT into system.locations VALUES ('region', 'eu-west-1', 53.142367, -7.692054); UPSERT into system.locations VALUES ('region', 'eu-west-2', 51.507351, -0.127758); UPSERT into system.locations VALUES ('region', 'eu-west-3', 48.856614, 2.352222); UPSERT into system.locations VALUES ('region', 'ap-northeast-1', 35.689487, 139.691706); UPSERT into system.locations VALUES ('region', 'ap-northeast-2', 37.566535, 126.977969); UPSERT into system.locations VALUES ('region', 'ap-northeast-3', 34.693738, 135.502165); UPSERT into system.locations VALUES ('region', 'ap-southeast-1', 1.352083, 103.819836); UPSERT into system.locations VALUES ('region', 'ap-southeast-2', -33.86882, 151.209296); UPSERT into system.locations VALUES ('region', 'ap-south-1', 19.075984, 72.877656); UPSERT into system.locations VALUES ('region', 'sa-east-1', -23.55052, -46.633309);"
 oc --context ${cluster1} exec $tools_pod -c tools -n cockroachdb -- /cockroach/cockroach sql  --certs-dir=/crdb-certs --host cockroachdb-0.cluster1.cockroachdb.cockroachdb.svc.clusterset.local --echo-sql --execute="SELECT * FROM system.locations;"
+
+
+oc --context ${cluster1} exec $tools_pod -c tools -n cockroachdb -- /cockroach/cockroach sql  --certs-dir=/crdb-certs --host cockroachdb-0.cluster1.cockroachdb.cockroachdb.svc.clusterset.local --echo-sql --execute="UPSERT into system.locations VALUES ('zone', 'us-east-1', 37.478397, -76.453077); UPSERT into system.locations VALUES ('zone', 'us-east-2', 40.417287, -76.453077); UPSERT into system.locations VALUES ('zone', 'us-west-1', 38.837522, -120.895824); UPSERT into system.locations VALUES ('zone', 'us-west-2', 43.804133, -120.554201); UPSERT into system.locations VALUES ('zone', 'ca-central-1', 56.130366, -106.346771); UPSERT into system.locations VALUES ('zone', 'eu-central-1', 50.110922, 8.682127); UPSERT into system.locations VALUES ('zone', 'eu-west-1', 53.142367, -7.692054); UPSERT into system.locations VALUES ('zone', 'eu-west-2', 51.507351, -0.127758); UPSERT into system.locations VALUES ('zone', 'eu-west-3', 48.856614, 2.352222); UPSERT into system.locations VALUES ('zone', 'ap-northeast-1', 35.689487, 139.691706); UPSERT into system.locations VALUES ('zone', 'ap-northeast-2', 37.566535, 126.977969); UPSERT into system.locations VALUES ('zone', 'ap-northeast-3', 34.693738, 135.502165); UPSERT into system.locations VALUES ('zone', 'ap-southeast-1', 1.352083, 103.819836); UPSERT into system.locations VALUES ('zone', 'ap-southeast-2', -33.86882, 151.209296); UPSERT into system.locations VALUES ('zone', 'ap-south-1', 19.075984, 72.877656); UPSERT into system.locations VALUES ('zone', 'sa-east-1', -23.55052, -46.633309);"
+oc --context ${cluster1} exec $tools_pod -c tools -n cockroachdb -- /cockroach/cockroach sql  --certs-dir=/crdb-certs --host cockroachdb-0.cluster1.cockroachdb.cockroachdb.svc.clusterset.local --echo-sql --execute="SELECT * FROM system.locations;"
+
 ```
 
 ### Initialize warehouses
 
+refer also to this: https://github.com/jhatcher9999/tpcc-distributed-k8s
+
 ```shell
-oc --context ${cluster1} exec $tools_pod -c tools -n cockroachdb -- /cockroach/cockroach workload init tpcc postgresql://dba:dba@cockroachdb-public.cockroachdb.svc.cluster.local:26257?sslmode=require --warehouses 1000 --partition-affinity=0 --partitions=3 --partition-strategy=leases --zones=us-east-1,us-east-2,us-west-2
+oc --context ${cluster1} exec $tools_pod -c tools -n cockroachdb -- /cockroach/cockroach workload init tpcc postgresql://dba:dba@cockroachdb-public.cockroachdb.svc.cluster.local:26257?sslmode=require --warehouses 1000 --partition-affinity=0 --partitions=3 --partition-strategy=leases --drop --zones=us-east-1,us-east-2,us-west-2
 ```
 
 This can take about three hours to complete.
@@ -107,10 +115,19 @@ In case of issues, this command can be used to drop the database
 oc --context ${cluster1} exec $tools_pod -c tools -n cockroachdb -- /cockroach/cockroach sql  --certs-dir=/crdb-certs --host cockroachdb-0.cluster1.cockroachdb.cockroachdb.svc.clusterset.local --echo-sql --execute='DROP DATABASE tpcc;'
 ```
 
-In case of issues, this command can be used to colelct the logs
+In case of issues, this command can be used to collect the logs
 
 ```shell
-oc --context ${cluster2} exec $tools_pod2 -c tools -n cockroachdb -- /cockroach/cockroach debug zip  /cockroach/cockroach-certs/log.zip --certs-dir=/crdb-certs --host cockroachdb-0.cluster2.cockroachdb.cockroachdb.svc.clusterset.local
+oc --context ${cluster1} exec $tools_pod -c tools -n cockroachdb -- /cockroach/cockroach debug zip  /tmp/log.zip --certs-dir=/crdb-certs --host cockroachdb-0.cluster1.cockroachdb.cockroachdb.svc.clusterset.local
+oc --context ${cluster1} rsync -c tools -n cockroachdb ${tools_pod}:/tmp/log.zip ./
+```
+
+Restart the cockroachdb pods
+
+```shell
+for context in ${cluster1} ${cluster2} ${cluster3}; do
+ oc --context ${context} rollout restart statefulset -n cockroachdb
+done
 ```
 
 ### Run tests
@@ -121,21 +138,21 @@ in terminal one run
 
 ```shell
 export tools_pod=$(oc --context cluster1 get pods -n cockroachdb | grep tools | awk '{print $1}')
-oc --context cluster1 exec $tools_pod -c tools -n cockroachdb -- /cockroach/cockroach workload run tpcc postgresql://dba:dba@cockroachdb-public.cockroachdb.svc.cluster.local:26257?sslmode=require --duration=60m --warehouses 1000 --ramp=180s --partition-affinity=0 --partitions=3 --partition-strategy=leases
+oc --context cluster1 exec $tools_pod -c tools -n cockroachdb -- /cockroach/cockroach workload run tpcc postgresql://dba:dba@cockroachdb-public.cockroachdb.svc.cluster.local:26257?sslmode=require --duration=60m --warehouses 1000 --ramp=180s --partitions=3 --partition-strategy=leases --split --scatter | tee ./cluster1.log
 ```
 
 in terminal two run:
 
 ```shell
 export tools_pod=$(oc --context cluster2 get pods -n cockroachdb | grep tools | awk '{print $1}')
-oc --context cluster2 exec $tools_pod -c tools -n cockroachdb -- /cockroach/cockroach workload run tpcc postgresql://dba:dba@cockroachdb-public.cockroachdb.svc.cluster.local:26257?sslmode=require --duration=60m --warehouses 1000 --ramp=180s --partition-affinity=1 --partitions=3 --partition-strategy=leases
+oc --context cluster2 exec $tools_pod -c tools -n cockroachdb -- /cockroach/cockroach workload run tpcc postgresql://dba:dba@cockroachdb-public.cockroachdb.svc.cluster.local:26257?sslmode=require --duration=60m --warehouses 1000 --ramp=180s --partitions=3 --partition-strategy=leases --split --scatter | tee ./cluster2.log
 ```
   
 in terminal three run
 
 ```shell
 export tools_pod=$(oc --context cluster3 get pods -n cockroachdb | grep tools | awk '{print $1}')
-oc --context cluster3 exec $tools_pod -c tools -n cockroachdb -- /cockroach/cockroach workload run tpcc postgresql://dba:dba@cockroachdb-public.cockroachdb.svc.cluster.local:26257?sslmode=require --duration=60m --warehouses 1000 --ramp=180s --partition-affinity=2 --partitions=3 --partition-strategy=leases
+oc --context cluster3 exec $tools_pod -c tools -n cockroachdb -- /cockroach/cockroach workload run tpcc postgresql://dba:dba@cockroachdb-public.cockroachdb.svc.cluster.local:26257?sslmode=require --duration=60m --warehouses 1000 --ramp=180s --partitions=3 --partition-strategy=leases --split --scatter | tee ./cluster3.log
 ```
 
 ## clean-up

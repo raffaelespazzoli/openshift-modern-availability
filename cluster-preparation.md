@@ -215,7 +215,7 @@ curl -Ls https://get.submariner.io | VERSION=devel bash
 subctl deploy-broker --kubecontext ${control_cluster} --service-discovery
 mv broker-info.subm /tmp/broker-info.subm
 for context in ${cluster1} ${cluster2} ${cluster3}; do
-  subctl join --kubecontext ${context} /tmp/broker-info.subm --no-label --clusterid $(echo ${context} | cut -d "/" -f2 | cut -d "-" -f2) --version devel
+  subctl join --kubecontext ${context} /tmp/broker-info.subm --no-label --clusterid $(echo ${context} | cut -d "/" -f2 | cut -d "-" -f2) --version devel --cable-driver libreswan
 done
 ```
 
@@ -231,6 +231,26 @@ At this point your architecture should look like the below image:
 
 ![Network Tunnel](./media/Submariner.png)
 
+verify submariner performance
+
+```shell
+for context_from in ${cluster1} ${cluster2} ${cluster3}; do
+  for context_to in ${cluster1} ${cluster2} ${cluster3}; do
+    if [ ${context_from} != ${context_to} ]; then
+      oc config use-context ${context_from}
+      cp ~/.kube/config /tmp/config-from
+      oc config use-context ${context_to}
+      cp ~/.kube/config /tmp/config-to
+      subctl benchmark latency /tmp/config-from /tmp/config-to
+      subctl benchmark throughput /tmp/config-from /tmp/config-to
+    fi
+  done
+done
+oc config use-context ${control_cluster}
+```
+
+## Troubleshooting Submariner
+
 ## Restarting submariner pods
 
 ```shell
@@ -238,6 +258,15 @@ for context in ${cluster1} ${cluster2} ${cluster3}; do
   oc --context ${context} rollout restart daemonset -n submariner-operator
   oc --context ${context} rollout restart deployment -n submariner-operator
 done
+```
+
+## Uinstalling submariner
+
+```shell
+for context in ${cluster1} ${cluster2} ${cluster3}; do
+  oc --context ${context} delete project submariner-operator
+done
+oc --context ${control_cluster} delete project submariner-k8s-broker
 ```
 
 ## Install kube-ops-view

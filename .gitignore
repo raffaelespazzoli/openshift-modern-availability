@@ -4,3 +4,7 @@ cluster3-metadata.json
 cluster-summary.txt
 cockroachdb/license.sh
 log.zip
+cloadTestLogs.zip
+cluster1.log
+cluster2.log
+cluster3.log

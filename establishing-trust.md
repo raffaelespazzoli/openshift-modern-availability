@@ -17,14 +17,17 @@ oc --context ${control_cluster} create secret generic vault-kms -n vault --from-
 oc --context ${control_cluster} apply -f ./vault/vault-control-cluster-certs.yaml -n vault
 ```
 
-### Deploy cert-manager and cert-utils-operator
+### Deploy cert-manager, cert-utils-operator and reloader
 
 ```shell
+helm repo add stakater https://stakater.github.io/stakater-charts
+helm repo update
 for context in ${cluster1} ${cluster2} ${cluster3}; do
   oc --context ${context} new-project cert-manager
   oc --context ${context} apply --validate=false -f https://github.com/jetstack/cert-manager/releases/download/v0.16.1/cert-manager.yaml
   oc --context ${context} new-project cert-utils-operator
   oc --context ${context} apply  -f ./cert-utils-operator/operator.yaml -n cert-utils-operator
+  helm --kube-context ${context} upgrade reloader stakater/reloader -i --create-namespace -n reloader
 done
 ```
 

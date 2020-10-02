@@ -1,0 +1,12 @@
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: cockroachdb
+provisioner: kubernetes.io/aws-ebs
+parameters:
+  encrypted: 'true'
+  type: io1
+  iopsPerGB: "50"
+reclaimPolicy: Delete
+allowVolumeExpansion: true
+volumeBindingMode: WaitForFirstConsumer
