@@ -1,6 +1,6 @@
 # CockroachDB
 
-In this step we are going to deploy cockroachdb
+In this step we are going to deploy a nine node cockroachdb cluster
 
 ## Deploy cockroachDB
 
@@ -104,10 +104,39 @@ oc --context ${cluster1} exec $tools_pod -c tools -n cockroachdb -- /cockroach/c
 refer also to this: https://github.com/jhatcher9999/tpcc-distributed-k8s
 
 ```shell
+oc --context ${cluster1} run tpcc-loader -n cockroachdb -ti --image=mgoddard/crdb-workload:1.0 --restart='Never' -- /cockroach/workload init tpcc postgresql://dba:dba@cockroachdb-public.cockroachdb.svc.cluster.local:26257?sslmode=require --warehouses 1000 --partition-affinity=0 --partitions=3 --partition-strategy=leases --drop --zones=us-east-1,us-east-2,us-west-2 --deprecated-fk-indexes
+
 oc --context ${cluster1} exec $tools_pod -c tools -n cockroachdb -- /cockroach/cockroach workload init tpcc postgresql://dba:dba@cockroachdb-public.cockroachdb.svc.cluster.local:26257?sslmode=require --warehouses 1000 --partition-affinity=0 --partitions=3 --partition-strategy=leases --drop --zones=us-east-1,us-east-2,us-west-2
 ```
 
 This can take about three hours to complete.
+
+### Run tests
+
+open three terminals, try to start the following commands at the same time
+
+in terminal one run
+
+```shell
+export tools_pod=$(oc --context cluster1 get pods -n cockroachdb | grep tools | awk '{print $1}')
+oc --context cluster1 exec $tools_pod -c tools -n cockroachdb -- /cockroach/cockroach workload run tpcc postgresql://dba:dba@cockroachdb-public.cockroachdb.svc.cluster.local:26257?sslmode=require --duration=60m --warehouses 1000 --ramp=180s --partition-affinity=0 --partitions=3 --partition-strategy=leases --split --scatter | tee ./cluster1.log
+```
+
+in terminal two run:
+
+```shell
+export tools_pod=$(oc --context cluster2 get pods -n cockroachdb | grep tools | awk '{print $1}')
+oc --context cluster2 exec $tools_pod -c tools -n cockroachdb -- /cockroach/cockroach workload run tpcc postgresql://dba:dba@cockroachdb-public.cockroachdb.svc.cluster.local:26257?sslmode=require --duration=60m --warehouses 1000 --ramp=180s --partition-affinity=1 --partitions=3 --partition-strategy=leases --split --scatter | tee ./cluster2.log
+```
+  
+in terminal three run
+
+```shell
+export tools_pod=$(oc --context cluster3 get pods -n cockroachdb | grep tools | awk '{print $1}')
+oc --context cluster3 exec $tools_pod -c tools -n cockroachdb -- /cockroach/cockroach workload run tpcc postgresql://dba:dba@cockroachdb-public.cockroachdb.svc.cluster.local:26257?sslmode=require --duration=60m --warehouses 1000 --ramp=180s --partition-affinity=2 --partitions=3 --partition-strategy=leases --split --scatter | tee ./cluster3.log
+```
+
+### Troubleshooting CRDB
 
 In case of issues, this command can be used to drop the database
 
@@ -130,29 +159,13 @@ for context in ${cluster1} ${cluster2} ${cluster3}; do
 done
 ```
 
-### Run tests
-
-open three terminals, try to start the following commands at the same time
-
-in terminal one run
+Scale to 0 and back (fixes certificate expired issue)
 
 ```shell
-export tools_pod=$(oc --context cluster1 get pods -n cockroachdb | grep tools | awk '{print $1}')
-oc --context cluster1 exec $tools_pod -c tools -n cockroachdb -- /cockroach/cockroach workload run tpcc postgresql://dba:dba@cockroachdb-public.cockroachdb.svc.cluster.local:26257?sslmode=require --duration=60m --warehouses 1000 --ramp=180s --partitions=3 --partition-strategy=leases --split --scatter | tee ./cluster1.log
-```
-
-in terminal two run:
-
-```shell
-export tools_pod=$(oc --context cluster2 get pods -n cockroachdb | grep tools | awk '{print $1}')
-oc --context cluster2 exec $tools_pod -c tools -n cockroachdb -- /cockroach/cockroach workload run tpcc postgresql://dba:dba@cockroachdb-public.cockroachdb.svc.cluster.local:26257?sslmode=require --duration=60m --warehouses 1000 --ramp=180s --partitions=3 --partition-strategy=leases --split --scatter | tee ./cluster2.log
-```
-  
-in terminal three run
-
-```shell
-export tools_pod=$(oc --context cluster3 get pods -n cockroachdb | grep tools | awk '{print $1}')
-oc --context cluster3 exec $tools_pod -c tools -n cockroachdb -- /cockroach/cockroach workload run tpcc postgresql://dba:dba@cockroachdb-public.cockroachdb.svc.cluster.local:26257?sslmode=require --duration=60m --warehouses 1000 --ramp=180s --partitions=3 --partition-strategy=leases --split --scatter | tee ./cluster3.log
+for context in ${cluster1} ${cluster2} ${cluster3}; do
+ oc --context ${context} scale statefulset cockroachdb -n cockroachdb --replicas=0
+ oc --context ${context} scale statefulset cockroachdb -n cockroachdb --replicas=3
+done
 ```
 
 ## clean-up

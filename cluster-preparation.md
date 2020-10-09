@@ -1,13 +1,15 @@
 # Cluster preparation
 
 In this step of the tutorial we ae going to stand up the clusters and configure them with a global load balancer and a network tunnel.
-This step has the followign reprequisites:
+This step has the following prerequisites:
 
 1. a running OCP cluster deployed in AWS. This cluster will become the control cluster. You need to be logged-in in it as an administrator.
 2. proper aws credentials and quotas to deploy on the NA AWS regions.
 3. a ssh key and a OCP pull secret.
 
 ## Deploy RHACM
+
+[Red Hat Advanced Cluster Management](https://www.redhat.com/en/technologies/management/advanced-cluster-management) allows among other things to declaratively manage the cluster's lifecycle.
 
 ```shell
 oc new-project open-cluster-management
@@ -19,6 +21,8 @@ RHACM requires significant resources, check that the RHACM pods are not stuck in
 Wait until all pods are started successfully.
 
 ## Create three managed clusters
+
+Prepare some variables
 
 ```shell
 export ssh_key=$(cat ~/.ssh/ocp_rsa | sed 's/^/  /')
@@ -96,25 +100,15 @@ done
 oc config use-context ${control_cluster}
 ```
 
-### Export needed variable for following steps
-
-```shell
-export cluster1_service_name=router-default
-export cluster2_service_name=router-default
-export cluster3_service_name=router-default
-export cluster1_service_namespace=openshift-ingress
-export cluster2_service_namespace=openshift-ingress
-export cluster3_service_namespace=openshift-ingress
-export cluster1_secret_name=$(oc --context ${control_cluster} get clusterdeployment cluster1 -n cluster1 -o jsonpath='{.spec.clusterMetadata.adminKubeconfigSecretRef.name}')
-export cluster2_secret_name=$(oc --context ${control_cluster} get clusterdeployment cluster2 -n cluster2 -o jsonpath='{.spec.clusterMetadata.adminKubeconfigSecretRef.name}')
-export cluster3_secret_name=$(oc --context ${control_cluster} get clusterdeployment cluster3 -n cluster3 -o jsonpath='{.spec.clusterMetadata.adminKubeconfigSecretRef.name}')
-```
+Now the `${cluster1}`,`${cluster2}` and `${cluster3}` variables contain the kube context to be used to connect to the respective clusters.
 
 ## Deploy global-load-balancer-operator
 
+The [global-load-balancer-operator](https://github.com/redhat-cop/global-load-balancer-operator#global-load-balancer-operator) programs route53 based on the global routes found on the managed clusters.
+
 ### Create global zone
 
-This will create a global zone called `global.<cluster-base-domain>` with associate zone delegation.
+This will create a global zone called `global.<cluster-base-domain>` with associated zone delegation.
 
 ```shell
 export cluster_base_domain=$(oc --context ${control_cluster} get dns cluster -o jsonpath='{.spec.baseDomain}')
@@ -140,6 +134,18 @@ oc --context ${control_cluster} apply -f ./global-load-balancer-operator/operato
 ### Deploy global dns configuration for route53
 
 ```shell
+export cluster1_service_name=router-default
+export cluster2_service_name=router-default
+export cluster3_service_name=router-default
+export cluster1_service_namespace=openshift-ingress
+export cluster2_service_namespace=openshift-ingress
+export cluster3_service_namespace=openshift-ingress
+export cluster1_secret_name=$(oc --context ${control_cluster} get clusterdeployment cluster1 -n cluster1 -o jsonpath='{.spec.clusterMetadata.adminKubeconfigSecretRef.name}')
+export cluster2_secret_name=$(oc --context ${control_cluster} get clusterdeployment cluster2 -n cluster2 -o jsonpath='{.spec.clusterMetadata.adminKubeconfigSecretRef.name}')
+export cluster3_secret_name=$(oc --context ${control_cluster} get clusterdeployment cluster3 -n cluster3 -o jsonpath='{.spec.clusterMetadata.adminKubeconfigSecretRef.name}')
+```
+
+```shell
 envsubst < ./global-load-balancer-operator/route53-credentials-request.yaml | oc --context ${control_cluster} apply -f - -n ${namespace}
 envsubst < ./global-load-balancer-operator/route53-dns-zone.yaml | oc --context ${control_cluster} apply -f -
 envsubst < ./global-load-balancer-operator/route53-global-route-discovery.yaml | oc --context ${control_cluster} apply -f - -n ${namespace}
@@ -149,7 +155,9 @@ At this point your architecture should look like the below image:
 
 ![Global Load Balancer](./media/GLB.png)
 
-## Deploy Submariner (network tunnel)
+## Deploy Submariner
+
+[Submariner](https://submariner.io/) creates an IPSec-based network tunnel between the managed clusters' SDNs.
 
 ### Prepare nodes for submariner
 
@@ -171,6 +179,7 @@ for context in ${cluster1} ${cluster2} ${cluster3}; do
 done
 ```
 
+<!--
 ### Deploy submariner via helm chart (do not use, it doesn't work)
 
 ```shell
@@ -207,8 +216,9 @@ for context in ${cluster1} ${cluster2} ${cluster3}; do
   helm template submariner ./charts/submariner --kube-context ${context} --create-namespace -f /tmp/values-sm.yaml -n submariner | oc --context ${context} apply -f - -n submariner
 done
 ```
+-->
 
-### Deploy submariner via CLI (use this for now)
+### Deploy submariner via CLI
 
 ```shell
 curl -Ls https://get.submariner.io | VERSION=devel bash
@@ -251,7 +261,7 @@ oc config use-context ${control_cluster}
 
 ## Troubleshooting Submariner
 
-## Restarting submariner pods
+### Restarting submariner pods
 
 ```shell
 for context in ${cluster1} ${cluster2} ${cluster3}; do
@@ -260,7 +270,7 @@ for context in ${cluster1} ${cluster2} ${cluster3}; do
 done
 ```
 
-## Uinstalling submariner
+### Uninstalling submariner
 
 ```shell
 for context in ${cluster1} ${cluster2} ${cluster3}; do
@@ -269,7 +279,7 @@ done
 oc --context ${control_cluster} delete project submariner-k8s-broker
 ```
 
-## Install kube-ops-view
+### Install kube-ops-view
 
 This can be useful to quickly troubleshoot issues
 
@@ -299,11 +309,4 @@ for cluster in cluster1 cluster2 cluster3; do
   cp ${cluster}-metadata.json ./${cluster}/medatada.json
   openshift-install  destroy cluster --log-level=debug --dir ./${cluster}
 done
-```
-
-## test file permissions
-
-```shell
-oc --context ${control_cluster} new-project file-permissions
-oc --context ${control_cluster} apply -f ./test-permissions.yaml -n file-permissions
 ```
