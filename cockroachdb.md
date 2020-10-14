@@ -73,10 +73,6 @@ At this point your architecture should look like the below image:
 
 ![CRDB](./media/CRDB.png)
 
-## Run the TPCC load test
-
-https://github.com/jhatcher9999/tpcc-distributed-k8s
-
 ### Deploy the enterprise license
 
 ```shell
@@ -96,8 +92,11 @@ oc --context ${cluster1} exec $tools_pod -c tools -n cockroachdb -- /cockroach/c
 
 oc --context ${cluster1} exec $tools_pod -c tools -n cockroachdb -- /cockroach/cockroach sql  --certs-dir=/crdb-certs --host cockroachdb-0.cluster1.cockroachdb.cockroachdb.svc.clusterset.local --echo-sql --execute="UPSERT into system.locations VALUES ('zone', 'us-east-1', 37.478397, -76.453077); UPSERT into system.locations VALUES ('zone', 'us-east-2', 40.417287, -76.453077); UPSERT into system.locations VALUES ('zone', 'us-west-1', 38.837522, -120.895824); UPSERT into system.locations VALUES ('zone', 'us-west-2', 43.804133, -120.554201); UPSERT into system.locations VALUES ('zone', 'ca-central-1', 56.130366, -106.346771); UPSERT into system.locations VALUES ('zone', 'eu-central-1', 50.110922, 8.682127); UPSERT into system.locations VALUES ('zone', 'eu-west-1', 53.142367, -7.692054); UPSERT into system.locations VALUES ('zone', 'eu-west-2', 51.507351, -0.127758); UPSERT into system.locations VALUES ('zone', 'eu-west-3', 48.856614, 2.352222); UPSERT into system.locations VALUES ('zone', 'ap-northeast-1', 35.689487, 139.691706); UPSERT into system.locations VALUES ('zone', 'ap-northeast-2', 37.566535, 126.977969); UPSERT into system.locations VALUES ('zone', 'ap-northeast-3', 34.693738, 135.502165); UPSERT into system.locations VALUES ('zone', 'ap-southeast-1', 1.352083, 103.819836); UPSERT into system.locations VALUES ('zone', 'ap-southeast-2', -33.86882, 151.209296); UPSERT into system.locations VALUES ('zone', 'ap-south-1', 19.075984, 72.877656); UPSERT into system.locations VALUES ('zone', 'sa-east-1', -23.55052, -46.633309);"
 oc --context ${cluster1} exec $tools_pod -c tools -n cockroachdb -- /cockroach/cockroach sql  --certs-dir=/crdb-certs --host cockroachdb-0.cluster1.cockroachdb.cockroachdb.svc.clusterset.local --echo-sql --execute="SELECT * FROM system.locations;"
-
 ```
+
+## Run the TPCC load test
+
+https://github.com/jhatcher9999/tpcc-distributed-k8s
 
 ### Initialize warehouses
 
@@ -105,8 +104,6 @@ refer also to this: https://github.com/jhatcher9999/tpcc-distributed-k8s
 
 ```shell
 oc --context ${cluster1} run tpcc-loader -n cockroachdb -ti --image=mgoddard/crdb-workload:1.0 --restart='Never' -- /cockroach/workload init tpcc postgresql://dba:dba@cockroachdb-public.cockroachdb.svc.cluster.local:26257?sslmode=require --warehouses 1000 --partition-affinity=0 --partitions=3 --partition-strategy=leases --drop --zones=us-east-1,us-east-2,us-west-2 --deprecated-fk-indexes
-
-oc --context ${cluster1} exec $tools_pod -c tools -n cockroachdb -- /cockroach/cockroach workload init tpcc postgresql://dba:dba@cockroachdb-public.cockroachdb.svc.cluster.local:26257?sslmode=require --warehouses 1000 --partition-affinity=0 --partitions=3 --partition-strategy=leases --drop --zones=us-east-1,us-east-2,us-west-2
 ```
 
 This can take about three hours to complete.
@@ -119,24 +116,82 @@ in terminal one run
 
 ```shell
 export tools_pod=$(oc --context cluster1 get pods -n cockroachdb | grep tools | awk '{print $1}')
-oc --context cluster1 exec $tools_pod -c tools -n cockroachdb -- /cockroach/cockroach workload run tpcc postgresql://dba:dba@cockroachdb-public.cockroachdb.svc.cluster.local:26257?sslmode=require --duration=60m --warehouses 1000 --ramp=180s --partition-affinity=0 --partitions=3 --partition-strategy=leases --split --scatter | tee ./cluster1.log
+oc --context cluster1 exec $tools_pod -c tools -n cockroachdb -- /cockroach/cockroach workload run tpcc postgresql://dba:dba@cockroachdb-public.cockroachdb.svc.cluster.local:26257?sslmode=require --duration=60m --warehouses 1000 --ramp=180s --partition-affinity=0 --partitions=3 --partition-strategy=leases --split --scatter --tolerate-errors | tee ./cluster1.log
 ```
 
 in terminal two run:
 
 ```shell
 export tools_pod=$(oc --context cluster2 get pods -n cockroachdb | grep tools | awk '{print $1}')
-oc --context cluster2 exec $tools_pod -c tools -n cockroachdb -- /cockroach/cockroach workload run tpcc postgresql://dba:dba@cockroachdb-public.cockroachdb.svc.cluster.local:26257?sslmode=require --duration=60m --warehouses 1000 --ramp=180s --partition-affinity=1 --partitions=3 --partition-strategy=leases --split --scatter | tee ./cluster2.log
+oc --context cluster2 exec $tools_pod -c tools -n cockroachdb -- /cockroach/cockroach workload run tpcc postgresql://dba:dba@cockroachdb-public.cockroachdb.svc.cluster.local:26257?sslmode=require --duration=60m --warehouses 1000 --ramp=180s --partition-affinity=1 --partitions=3 --partition-strategy=leases --split --scatter --tolerate-errors | tee ./cluster2.log
 ```
   
 in terminal three run
 
 ```shell
 export tools_pod=$(oc --context cluster3 get pods -n cockroachdb | grep tools | awk '{print $1}')
-oc --context cluster3 exec $tools_pod -c tools -n cockroachdb -- /cockroach/cockroach workload run tpcc postgresql://dba:dba@cockroachdb-public.cockroachdb.svc.cluster.local:26257?sslmode=require --duration=60m --warehouses 1000 --ramp=180s --partition-affinity=2 --partitions=3 --partition-strategy=leases --split --scatter | tee ./cluster3.log
+oc --context cluster3 exec $tools_pod -c tools -n cockroachdb -- /cockroach/cockroach workload run tpcc postgresql://dba:dba@cockroachdb-public.cockroachdb.svc.cluster.local:26257?sslmode=require --duration=60m --warehouses 1000 --ramp=180s --partition-affinity=2 --partitions=3 --partition-strategy=leases --split --scatter --tolerate-errors | tee ./cluster3.log
 ```
 
-### Troubleshooting CRDB
+## Run the ycsb test
+
+load the data
+
+```shell
+export tools_pod=$(oc --context cluster1 get pods -n cockroachdb | grep tools | awk '{print $1}')
+oc --context ${cluster1} exec $tools_pod -c tools -n cockroachdb -- /cockroach/cockroach workload init ycsb  --drop postgresql://dba:dba@cockroachdb-public.cockroachdb.svc.cluster.local:26257?sslmode=require
+```
+
+--splits=50
+
+Run the test
+
+in terminal one run
+
+```shell
+export tools_pod=$(oc --context cluster1 get pods -n cockroachdb | grep tools | awk '{print $1}')
+oc --context cluster1 exec $tools_pod -c tools -n cockroachdb -- /cockroach/cockroach workload run ycsb --ramp=3m --duration=20m  --tolerate-errors postgresql://dba:dba@cockroachdb-public.cockroachdb.svc.cluster.local:26257?sslmode=require  | tee ./yscb_cluster1.log
+```
+
+--concurrency=3 --max-rate=1000
+
+in terminal two run:
+
+```shell
+export tools_pod=$(oc --context cluster2 get pods -n cockroachdb | grep tools | awk '{print $1}')
+oc --context cluster2 exec $tools_pod -c tools -n cockroachdb -- /cockroach/cockroach workload run ycsb --ramp=3m --duration=20m  --tolerate-errors postgresql://dba:dba@cockroachdb-public.cockroachdb.svc.cluster.local:26257?sslmode=require  | tee ./yscb_cluster2.log
+```
+  
+in terminal three run
+
+```shell
+export tools_pod=$(oc --context cluster3 get pods -n cockroachdb | grep tools | awk '{print $1}')
+oc --context cluster3 exec $tools_pod -c tools -n cockroachdb -- /cockroach/cockroach workload run ycsb --ramp=3m --duration=20m  --tolerate-errors postgresql://dba:dba@cockroachdb-public.cockroachdb.svc.cluster.local:26257?sslmode=require  | tee ./yscb_cluster3.log
+```
+
+## Run the disaster recovery test
+
+Run the tpcc test as described above.
+Isolate the us-west-1 VPC and observe the results.
+
+```shell
+export cluster=cluster3
+export region=$(oc --context ${cluster} get infrastructure cluster -o jsonpath='{.status.platformStatus.aws.region}')
+export instance_id=$(oc --context ${cluster} get machine -n openshift-machine-api -o json | jq -rc '[ .items[] | select(.status.phase == "Running")] | .[0].status.providerStatus.instanceId')
+export vpc_id=$(aws --region ${region} ec2 describe-instances --instance-ids=${instance_id} | jq -r .Reservations[0].Instances[0].VpcId )
+export network_acl_id=$(aws --region ${region} ec2 describe-network-acls --filters Name=vpc-id,Values=${vpc_id} | jq -r .NetworkAcls[0].NetworkAclId)
+aws --region ${region} ec2 replace-network-acl-entry --egress --network-acl-id=${network_acl_id} --protocol=-1 --rule-action=DENY --rule-number=100 --cidr-block=0.0.0.0/0
+aws --region ${region} ec2 replace-network-acl-entry --ingress --network-acl-id=${network_acl_id} --protocol=-1 --rule-action=DENY --rule-number=100 --cidr-block=0.0.0.0/0
+```
+
+To restore traffic, run the following:
+
+```shell
+aws --region ${region} ec2 replace-network-acl-entry --egress --network-acl-id=${network_acl_id} --protocol=-1 --rule-action=ALLOW --rule-number=100 --cidr-block=0.0.0.0/0
+aws --region ${region} ec2 replace-network-acl-entry --ingress --network-acl-id=${network_acl_id} --protocol=-1 --rule-action=ALLOW --rule-number=100 --cidr-block=0.0.0.0/0
+```
+
+## Troubleshooting CRDB
 
 In case of issues, this command can be used to drop the database
 

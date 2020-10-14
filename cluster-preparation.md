@@ -179,6 +179,17 @@ for context in ${cluster1} ${cluster2} ${cluster3}; do
 done
 ```
 
+### Upgrade the node machine to a network optimized machine type
+
+```shell
+for context in ${cluster1} ${cluster2} ${cluster3}; do
+  export gateway_machine_set=$(oc --context ${context} get machineset -n openshift-machine-api | grep submariner | awk '{print $1}')
+  oc --context ${context} scale machineset ${gateway_machine_set} -n openshift-machine-api --replicas=0
+  oc --context ${context} patch machineset ${gateway_machine_set} -n openshift-machine-api -p '{"spec":{"template":{"spec":{"providerSpec":{"value":{"instanceType":"m5n.xlarge"}}}}}}'
+  oc --context ${context} scale machineset ${gateway_machine_set} -n openshift-machine-api --replicas=1
+done
+```
+
 <!--
 ### Deploy submariner via helm chart (do not use, it doesn't work)
 
