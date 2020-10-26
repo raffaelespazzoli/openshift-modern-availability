@@ -28,7 +28,7 @@ metadata:
     cert-utils-operator.redhat-cop.io/destinationCA-from-secret: cockroachdb-tls
     cert-utils-operator.redhat-cop.io/certs-from-secret: {{ template "cockroachdb-multicluster.fullname" . }}-route-tls
     global-load-balancer-operator.redhat-cop.io/load-balancing-policy: Latency
-    global-load-balancer-operator.redhat-cop.io/health-check: '{"httpGet":{"path":"health?ready=1","port":443,"scheme":"HTTPS"},"timeoutSeconds":1,"periodSeconds":10,"successThreshold":1,"failureThreshold":3}'
+    #global-load-balancer-operator.redhat-cop.io/health-check: '{"httpGet":{"path":"health?ready=1","port":443,"scheme":"HTTPS"},"timeoutSeconds":1,"periodSeconds":10,"successThreshold":1,"failureThreshold":3}'
   labels:
     route-type: global    
   name: {{ template "cockroachdb-multicluster.fullname" . }}
