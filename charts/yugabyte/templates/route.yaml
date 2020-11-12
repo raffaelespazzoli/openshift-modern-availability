@@ -1,0 +1,35 @@
+kind: Route
+apiVersion: route.openshift.io/v1
+metadata:
+  name: yugabyte
+  annotations:
+    cert-utils-operator.redhat-cop.io/destinationCA-from-secret: yugabyte-master-ui-tls
+spec:
+  host: yugabyte.apps.{{ .Values.base_domain }} 
+  to:
+    kind: Service
+    name: yb-master-ui
+    weight: 100
+  port:
+    targetPort: http-ui
+  wildcardPolicy: None
+  tls:
+    termination: edge
+---
+apiVersion: certmanager.k8s.io/v1alpha1
+kind: Certificate
+metadata:
+  name: yugabyte-master-ui
+spec:
+  # Secret names are always required.
+  secretName: yugabyte-master-ui-tls
+  commonName: yugabyte-master-ui
+  usages:
+    - server auth 
+  dnsNames:    
+  - yugabyte.apps.{{ .Values.base_domain }}
+  duration: 168h
+  renewBefore: 1h
+  issuerRef:
+    name: internal-issuer
+

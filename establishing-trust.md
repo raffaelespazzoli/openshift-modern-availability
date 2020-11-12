@@ -11,7 +11,7 @@ In this step we are going to use Vault as our secret manager and we are going to
 ```shell
 export region=$(oc --context ${control_cluster} get infrastructure cluster -o jsonpath='{.status.platformStatus.aws.region}')
 export key_id=$(aws --region ${region} kms create-key --description "used by vault" | jq -r .KeyMetadata.KeyId)
-aws kms tag-resource --key-id ${key-id} --tags TagKey=name,TagValue=vault-key
+aws --region ${region} kms tag-resource --key-id ${key_id} --tags TagKey=name,TagValue=vault-key
 oc --context ${control_cluster} new-project vault
 oc --context ${control_cluster} create secret generic vault-kms -n vault --from-literal=key_id=${key_id}
 oc --context ${control_cluster} apply -f ./vault/vault-control-cluster-certs.yaml -n vault
@@ -24,10 +24,12 @@ helm repo add stakater https://stakater.github.io/stakater-charts
 helm repo update
 for context in ${cluster1} ${cluster2} ${cluster3}; do
   oc --context ${context} new-project cert-manager
-  oc --context ${context} apply --validate=false -f https://github.com/jetstack/cert-manager/releases/download/v0.16.1/cert-manager.yaml
+  oc --context ${context} apply --validate=false -f https://github.com/jetstack/cert-manager/releases/download/v1.0.4/cert-manager.yaml
   oc --context ${context} new-project cert-utils-operator
   oc --context ${context} apply  -f ./cert-utils-operator/operator.yaml -n cert-utils-operator
-  helm --kube-context ${context} upgrade reloader stakater/reloader -i --create-namespace -n reloader
+  oc new-project reloader
+  export uid=$(oc --context ${context} get project reloader -o jsonpath='{.metadata.annotations.openshift\.io/sa\.scc\.uid-range}'|sed 's/\/.*//')
+  helm --kube-context ${context} upgrade reloader stakater/reloader -i --create-namespace -n reloader --set reloader.deployment.securityContext.runAsUser=${uid}
 done
 ```
 
@@ -40,7 +42,6 @@ export key_id=$(oc --context ${control_cluster} get secret vault-kms -n vault -o
 export region=$(oc --context ${control_cluster} get infrastructure cluster -o jsonpath='{.status.platformStatus.aws.region}')
 export cluster_base_domain=$(oc --context ${control_cluster} get dns cluster -o jsonpath='{.spec.baseDomain}')
 export global_base_domain=global.${cluster_base_domain#*.}
-#helm dependency update ./charts/vault-multicluster
 for context in ${cluster1} ${cluster2} ${cluster3}; do
   export cluster=${context}
   envsubst < ./vault/kms-values.yaml.template > /tmp/values.yaml
@@ -113,7 +114,7 @@ done
 
 ```shell
 export VAULT_ADDR=https://vault.${global_base_domain}
-export VAULT_TOKEN=$(oc --context ${control_cluster} get secret vault-init -n vault -o jsonpath '{data.root_token}'| base64 -d )
+export VAULT_TOKEN=$(oc --context ${control_cluster} get secret vault-init -n vault -o jsonpath='{.data.root_token}'| base64 -d )
 vault secrets enable -tls-skip-verify pki
 vault secrets tune -tls-skip-verify -max-lease-ttl=87600h pki
 vault write -tls-skip-verify pki/root/generate/internal common_name=cert-manager.cluster.local ttl=87600h

@@ -133,6 +133,7 @@ export tools_pod=$(oc --context cluster3 get pods -n cockroachdb | grep tools | 
 oc --context cluster3 exec $tools_pod -c tools -n cockroachdb -- /cockroach/cockroach workload run tpcc postgresql://dba:dba@cockroachdb-public.cockroachdb.svc.cluster.local:26257?sslmode=require --duration=60m --warehouses 1000 --ramp=180s --partition-affinity=2 --partitions=3 --partition-strategy=leases --split --scatter --tolerate-errors | tee ./cluster3.log
 ```
 
+<!--
 ## Run the ycsb test
 
 load the data
@@ -168,7 +169,7 @@ in terminal three run
 export tools_pod=$(oc --context cluster3 get pods -n cockroachdb | grep tools | awk '{print $1}')
 oc --context cluster3 exec $tools_pod -c tools -n cockroachdb -- /cockroach/cockroach workload run ycsb --ramp=3m --duration=20m  --tolerate-errors postgresql://dba:dba@cockroachdb-public.cockroachdb.svc.cluster.local:26257?sslmode=require  | tee ./yscb_cluster3.log
 ```
-
+-->
 ## Run the disaster recovery test
 
 Run the tpcc test as described above.

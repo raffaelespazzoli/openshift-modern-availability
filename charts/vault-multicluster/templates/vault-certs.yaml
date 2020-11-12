@@ -7,7 +7,7 @@ data:
   tls.key: {{ .Values.rootca_key }}
 ---  
 # Create an Issuer that uses the above generated CA certificate to issue certs
-apiVersion: cert-manager.io/v1alpha2
+apiVersion: cert-manager.io/v1
 kind: Issuer
 metadata:
   name: internal-issuer
@@ -15,7 +15,7 @@ spec:
   ca:
     secretName: rootca
 ---
-apiVersion: cert-manager.io/v1alpha2
+apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
   name: vault

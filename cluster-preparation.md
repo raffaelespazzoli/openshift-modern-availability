@@ -185,10 +185,11 @@ done
 for context in ${cluster1} ${cluster2} ${cluster3}; do
   export gateway_machine_set=$(oc --context ${context} get machineset -n openshift-machine-api | grep submariner | awk '{print $1}')
   oc --context ${context} scale machineset ${gateway_machine_set} -n openshift-machine-api --replicas=0
-  oc --context ${context} patch machineset ${gateway_machine_set} -n openshift-machine-api -p '{"spec":{"template":{"spec":{"providerSpec":{"value":{"instanceType":"m5n.xlarge"}}}}}}'
+  oc --context ${context} patch MachineSet ${gateway_machine_set} --type='json' -n openshift-machine-api -p='[{"op" : "replace", "path" : "/spec/template/spec/providerSpec/value/instanceType", "value" : "m5n.xlarge"}]'
   oc --context ${context} scale machineset ${gateway_machine_set} -n openshift-machine-api --replicas=1
 done
 ```
+
 
 <!--
 ### Deploy submariner via helm chart (do not use, it doesn't work)
@@ -236,7 +237,7 @@ curl -Ls https://get.submariner.io | VERSION=0.7.0 bash
 subctl deploy-broker --kubecontext ${control_cluster} --service-discovery
 mv broker-info.subm /tmp/broker-info.subm
 for context in ${cluster1} ${cluster2} ${cluster3}; do
-  subctl join --kubecontext ${context} /tmp/broker-info.subm --no-label --clusterid $(echo ${context} | cut -d "/" -f2 | cut -d "-" -f2) --version devel --cable-driver libreswan
+  subctl join --kubecontext ${context} /tmp/broker-info.subm --no-label --clusterid $(echo ${context} | cut -d "/" -f2 | cut -d "-" -f2) --cable-driver libreswan
 done
 ```
 
@@ -251,6 +252,8 @@ done
 At this point your architecture should look like the below image:
 
 ![Network Tunnel](./media/Submariner.png)
+
+<!--
 
 verify submariner performance
 
@@ -269,6 +272,8 @@ for context_from in ${cluster1} ${cluster2} ${cluster3}; do
 done
 oc config use-context ${control_cluster}
 ```
+
+-->
 
 ## Troubleshooting Submariner
 
