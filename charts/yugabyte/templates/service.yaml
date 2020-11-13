@@ -214,6 +214,24 @@ spec:
                   - "{{ .label }}"
               topologyKey: failure-domain.beta.kubernetes.io/zone
       initContainers:
+      {{ if eq .name "yb-tservers" }}
+      - name: "chmod-pgdata"
+        image: busybox@sha256:d366a4665ab44f0648d7a00ae3fae139d55e32f9712c67accd604bb55df9d05a
+        imagePullPolicy: IfNotPresent
+        command:
+          - sh
+          - -c
+          - >
+            chmod 700 /mnt/disk*/pg_data;
+            echo done;
+        {{ if not $root.Values.storage.ephemeral }}
+        volumeMounts:
+          {{- range $index := until (int ($storageInfo.count)) }}
+          - name: datadir{{ $index }}
+            mountPath: /mnt/disk{{ $index }}
+          {{- end }}
+        {{- end }}
+      {{ end }}      
       - name: "topology-discovery"
         image: registry.redhat.io/openshift4/ose-cli:latest
         volumeMounts:

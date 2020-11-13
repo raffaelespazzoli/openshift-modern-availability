@@ -3,7 +3,7 @@ apiVersion: route.openshift.io/v1
 metadata:
   name: yugabyte
   annotations:
-    cert-utils-operator.redhat-cop.io/destinationCA-from-secret: yugabyte-master-ui-tls
+    cert-utils-operator.redhat-cop.io/certs-from-secret: yugabyte-master-ui-tls
     global-load-balancer-operator.redhat-cop.io/load-balancing-policy: Latency
   labels:
     route-type: global      
