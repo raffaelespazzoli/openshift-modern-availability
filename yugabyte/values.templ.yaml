@@ -1,0 +1,41 @@
+isMultiAz: true
+
+masterAddresses: yb-master-0.cluster1.yb-masters.yugabyte.svc.clusterset.local:7100,yb-master-0.cluster2.yb-masters.yugabyte.svc.clusterset.local:7100,yb-master-0.cluster3.yb-masters.yugabyte.svc.clusterset.local:7100
+
+storage:
+  master:
+    storageClass: "yugabyte"
+  tserver:
+    storageClass: "yugabyte"
+
+replicas:
+  master: 1
+  tserver: 3
+  totalMasters: 3
+
+# resource:
+#   master:
+#     requests:
+#       cpu: 0.2
+#       memory: 500Mi
+#   tserver:
+#     requests:
+#       cpu: 0.2
+#       memory: 500Mi
+
+tls:
+  enabled: true
+
+base_domain: ${global_base_domain}
+cluster: ${cluster}
+domainName: "clusterset.local"
+tolerations:
+  - key: "workload"
+    operator: "Equal"
+    value: "yugabyte"
+    effect: "NoSchedule"
+nodeSelector:
+  workload: yugabyte
+
+uid: ${uid}
+guid: ${guid}  

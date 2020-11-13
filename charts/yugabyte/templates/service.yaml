@@ -123,6 +123,8 @@ metadata:
     release: {{ $root.Release.Name | quote }}
     chart: "{{ $root.Chart.Name }}"
     component: "{{ $root.Values.Component }}"
+  annotations:
+    reloader.stakater.com/auto: "true"  
 spec:
   serviceName: "{{ .name }}"
   podManagementPolicy: {{ $root.Values.PodManagementPolicy }}
@@ -187,6 +189,9 @@ spec:
       nodeSelector:
       {{ toYaml $root.Values.nodeSelector | indent 8 }}
       {{- end }}
+      {{- with $root.Values.tolerations }}
+      tolerations: {{- toYaml . | nindent 8 }}
+      {{- end }}      
       affinity:
         # Set the anti-affinity selector scope to YB masters.
         {{ if $root.Values.AZ }}
@@ -244,19 +249,25 @@ spec:
         - name: NAMESPACE
           valueFrom:
             fieldRef:
-              fieldPath: metadata.namespace              
+              fieldPath: metadata.namespace
+        - name: CLUSTER
+          value: {{ $root.Values.cluster }}                       
         command:
         - bash
         - -c
         - |
           export ordinal="${NAME##*-}" 
-          cp /certs-${ordinal}/tls.key /certs/node.${NAME}.{{ .name }}.${NAMESPACE}.svc.cluster.local.key
-          cp /certs-${ordinal}/tls.crt /certs/node.${NAME}.{{ .name }}.${NAMESPACE}.svc.cluster.local.crt
+          cp /certs-${ordinal}/tls.key /certs/node.${NAME}.${CLUSTER}.{{ .name }}.${NAMESPACE}.svc.clusterset.local.key
+          chmod 0600 /certs/node.${NAME}.${CLUSTER}.{{ .name }}.${NAMESPACE}.svc.clusterset.local.key
+          cp /certs-${ordinal}/tls.crt /certs/node.${NAME}.${CLUSTER}.{{ .name }}.${NAMESPACE}.svc.clusterset.local.crt
           cp /certs-${ordinal}/ca.crt /certs/ca.crt                     
       containers:
       - name: "{{ .label }}"
         image: "{{ $root.Values.Image.repository }}:{{ $root.Values.Image.tag }}"
         imagePullPolicy: {{ $root.Values.Image.pullPolicy }}
+        securityContext:
+          runAsUser: {{ $root.Values.uid }}
+          runAsGroup: {{ $root.Values.guid }}        
         lifecycle:
           postStart:
             exec:
@@ -311,15 +322,15 @@ spec:
           {{- if $root.Values.istioCompatibility.enabled }}
             --rpc_bind_addresses=0.0.0.0:7100
           {{- else }}
-            --rpc_bind_addresses={{ printf "$(HOSTNAME).%s.$(NAMESPACE).svc.%s" .name $root.Values.domainName }}
+            --rpc_bind_addresses={{ printf "$(HOSTNAME).%s.%s.$(NAMESPACE).svc.%s"  $root.Values.cluster .name $root.Values.domainName }}
           {{- end }}
-            --server_broadcast_addresses={{ printf "$(HOSTNAME).%s.$(NAMESPACE).svc.%s" .name $root.Values.domainName }}:7100
-            --webserver_interface={{ eq $root.Values.ip_version_support "v6_only" | ternary "[::]" "0.0.0.0" }}
+            --server_broadcast_addresses={{ printf "$(HOSTNAME).%s.%s.$(NAMESPACE).svc.%s"  $root.Values.cluster .name $root.Values.domainName }}:7100
+            --webserver_interface={{ printf "$(HOSTNAME).%s.%s.$(NAMESPACE).svc.%s"  $root.Values.cluster .name $root.Values.domainName }}
           {{- if eq $root.Values.ip_version_support "v6_only"}}
             --net_address_filter=ipv6_external,ipv6_non_link_local,ipv6_all,ipv4_external,ipv4_all
           {{- end }}
           {{- if $root.Values.isMultiAz }}
-            --master_addresses={{ $root.Values.masterAddresses}}
+            --master_addresses={{ $root.Values.masterAddresses }}
             --replication_factor={{ $root.Values.replicas.totalMasters }}
           {{- else }}
             --master_addresses={{ template "yugabyte.master_addresses" $root }}
@@ -346,18 +357,18 @@ spec:
         {{ else }}
             /home/yugabyte/bin/yb-tserver
             --fs_data_dirs={{ template "yugabyte.fs_data_dirs" $storageInfo }}
-            --server_broadcast_addresses={{ printf "$(HOSTNAME).%s.$(NAMESPACE).svc.%s" .name $root.Values.domainName }}:9100
+            --server_broadcast_addresses={{ printf "$(HOSTNAME).%s.%s.$(NAMESPACE).svc.%s"  $root.Values.cluster .name $root.Values.domainName }}:9100
           {{- if $root.Values.istioCompatibility.enabled }}
             --rpc_bind_addresses=0.0.0.0:9100
           {{- else }}
-            --rpc_bind_addresses={{ printf "$(HOSTNAME).%s.$(NAMESPACE).svc.%s" .name $root.Values.domainName }}
+            --rpc_bind_addresses={{ printf "$(HOSTNAME).%s.%s.$(NAMESPACE).svc.%s"  $root.Values.cluster .name $root.Values.domainName }}
           {{- end }}
           {{- if $root.Values.istioCompatibility.enabled }}
             --cql_proxy_bind_address=0.0.0.0:9042
           {{- else }}
-            --cql_proxy_bind_address={{ printf "$(HOSTNAME).%s.$(NAMESPACE).svc.%s" .name $root.Values.domainName }}
+            --cql_proxy_bind_address={{ printf "$(HOSTNAME).%s.%s.$(NAMESPACE).svc.%s"  $root.Values.cluster .name $root.Values.domainName }}
           {{- end }}
-            --webserver_interface={{ eq $root.Values.ip_version_support "v6_only" | ternary "[::]" "0.0.0.0" }}
+            --webserver_interface={{ printf "$(HOSTNAME).%s.%s.$(NAMESPACE).svc.%s"  $root.Values.cluster .name $root.Values.domainName }}
           {{- if eq $root.Values.ip_version_support "v6_only" }}
             --net_address_filter=ipv6_external,ipv6_non_link_local,ipv6_all,ipv4_external,ipv4_all
           {{- end }}
@@ -368,7 +379,7 @@ spec:
             --enable_ysql=false
           {{- end }}
           {{- if $root.Values.isMultiAz }}
-            --tserver_master_addrs={{ $root.Values.masterAddresses}}
+            --tserver_master_addrs={{ $root.Values.masterAddresses }}
           {{- else }}
             --tserver_master_addrs={{ template "yugabyte.master_addresses" $root }}
           {{- end }}

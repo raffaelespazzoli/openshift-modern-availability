@@ -119,7 +119,7 @@ vault secrets enable -tls-skip-verify pki
 vault secrets tune -tls-skip-verify -max-lease-ttl=87600h pki
 vault write -tls-skip-verify pki/root/generate/internal common_name=cert-manager.cluster.local ttl=87600h
 vault write -tls-skip-verify pki/config/urls issuing_certificates="http://vault.vault.svc:8200/v1/pki/ca" crl_distribution_points="http://vault.vault.svc:8200/v1/pki/crl"
-vault write -tls-skip-verify pki/roles/cert-manager allowed_domains=svc,svc.cluster.local,svc.clusterset.local,node,root,${global_base_domain} allow_bare_domains=true allow_subdomains=true allow_localhost=false enforce_hostnames=false
+vault write -tls-skip-verify pki/roles/cert-manager allowed_domains=svc,svc.cluster.local,svc.clusterset.local,node,root,${global_base_domain},yugabyte allow_bare_domains=true allow_subdomains=true allow_localhost=false enforce_hostnames=false
 vault policy write -tls-skip-verify cert-manager ./vault/cert-manager-policy.hcl
 ```
 
@@ -131,6 +131,14 @@ for context in ${cluster1} ${cluster2} ${cluster3}; do
   export sa_secret_name=$(oc --context ${context} get sa default -n cert-manager -o jsonpath='{.secrets[*].name}' | grep -o '\b\w*\-token-\w*\b')
   export cluster=${context}
   envsubst < ./vault/vault-issuer.yaml | oc --context ${context} apply -f - -n cert-manager
+done  
+```
+
+## Restart Vault pods
+
+```shell
+for context in ${cluster1} ${cluster2} ${cluster3}; do
+  oc --context ${context} rollout restart statefulset/vault -n vault
 done  
 ```
 

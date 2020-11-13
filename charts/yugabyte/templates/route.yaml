@@ -4,8 +4,11 @@ metadata:
   name: yugabyte
   annotations:
     cert-utils-operator.redhat-cop.io/destinationCA-from-secret: yugabyte-master-ui-tls
+    global-load-balancer-operator.redhat-cop.io/load-balancing-policy: Latency
+  labels:
+    route-type: global      
 spec:
-  host: yugabyte.apps.{{ .Values.base_domain }} 
+  host: yugabyte.{{ .Values.base_domain }} 
   to:
     kind: Service
     name: yb-master-ui
@@ -16,20 +19,26 @@ spec:
   tls:
     termination: edge
 ---
-apiVersion: certmanager.k8s.io/v1alpha1
+apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
   name: yugabyte-master-ui
 spec:
   # Secret names are always required.
   secretName: yugabyte-master-ui-tls
-  commonName: yugabyte-master-ui
+  commonName: yugabyte.{{ .Values.base_domain }}
   usages:
     - server auth 
   dnsNames:    
-  - yugabyte.apps.{{ .Values.base_domain }}
+  - yugabyte.{{ .Values.base_domain }}
   duration: 168h
   renewBefore: 1h
   issuerRef:
-    name: internal-issuer
+    name: vault-issuer
+    # We can reference ClusterIssuers by changing the kind here.
+    # The default value is Issuer (i.e. a locally namespaced Issuer)
+    kind: ClusterIssuer
+    # This is optional since cert-manager will default to this value however
+    # if you are using an external issuer, change this to that issuer group.
+    group: cert-manager.io
 

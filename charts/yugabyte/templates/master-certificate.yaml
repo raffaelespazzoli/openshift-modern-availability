@@ -1,23 +1,29 @@
 {{- $root := . -}}  
 {{- range until (int .Values.replicas.master) }}
-apiVersion: certmanager.k8s.io/v1alpha1
+apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
   name: {{ (index $root.Values.Services 0).label }}-yugabyte-tls-cert-{{ . }}
 spec:
   # Secret names are always required.
   secretName: {{ (index $root.Values.Services 0).label }}-yugabyte-tls-cert-{{ . }}
-  commonName: {{ (index $root.Values.Services 0).label }}-{{ . }}.{{ (index $root.Values.Services 0).name }}.{{ $root.Release.Namespace }}.svc.cluster.local
+  commonName: {{ (index $root.Values.Services 0).label }}-{{ . }}.{{ $root.Values.cluster }}.{{ (index $root.Values.Services 0).name }}.{{ $root.Release.Namespace }}.svc.clusterset.local
   usages:
     - server auth
     - client auth  
   dnsNames:
+  - {{ (index $root.Values.Services 0).label }}-{{ . }}.{{ $root.Values.cluster }}.{{ (index $root.Values.Services 0).name }}.{{ $root.Release.Namespace }}.svc.clusterset.local
   - {{ (index $root.Values.Services 0).label }}-{{ . }}.{{ (index $root.Values.Services 0).name }}.{{ $root.Release.Namespace }}.svc.cluster.local
   - {{ (index $root.Values.Services 0).label }}-{{ . }}.{{ (index $root.Values.Services 0).name }}.{{ $root.Release.Namespace }}.svc
-  - {{ (index $root.Values.Services 0).label }}-{{ . }}.{{ (index $root.Values.Services 0).name }}
   duration: 168h
   renewBefore: 1h
   issuerRef:
-    name: internal-issuer
+    name: vault-issuer
+    # We can reference ClusterIssuers by changing the kind here.
+    # The default value is Issuer (i.e. a locally namespaced Issuer)
+    kind: ClusterIssuer
+    # This is optional since cert-manager will default to this value however
+    # if you are using an external issuer, change this to that issuer group.
+    group: cert-manager.io
 ---    
 {{- end }}    

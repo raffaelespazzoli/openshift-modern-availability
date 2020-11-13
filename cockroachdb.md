@@ -17,8 +17,8 @@ for context in ${cluster1} ${cluster2} ${cluster3}; do
     export zone=${region}${z}
     oc --context ${context} scale machineset -n openshift-machine-api $(envsubst < ./cockroachdb/machineset.yaml | yq -r .metadata.name) --replicas 0 
     envsubst < ./cockroachdb/machineset.yaml | oc --context ${context} apply -f -
-    oc --context ${context} apply -f ./cockroachdb/storage-class.yaml
   done
+  oc --context ${context} apply -f ./cockroachdb/storage-class.yaml
 done
 ```
 
