@@ -1,0 +1,238 @@
+kind: BuildConfig
+apiVersion: build.openshift.io/v1
+metadata:
+  name: tpcc-helper-pod
+spec:
+  source: 
+    dockerfile: | 
+      FROM registry.redhat.io/ubi8/openjdk-11
+      VOLUME /tmp-tgz
+      USER root
+      ADD https://github.com/yugabyte/tpcc/releases/download/1.4/tpcc.tar.gz /tmp-tgz/tpcc.tar.gz
+      RUN mkdir -p  /tpccbenchmark && \
+          tar -zxvf /tmp-tgz/tpcc.tar.gz -C /tpccbenchmark
+      USER 1001
+      WORKDIR /tpccbenchmark/tpcc
+      ENTRYPOINT /tpccbenchmark/tpcc/tpccbenchmark   
+  strategy: 
+    dockerStrategy: {}
+  output: 
+    to:
+      kind: "ImageStreamTag"
+      name: "tpccbenchmark:1.4"
+---
+kind: BuildConfig
+apiVersion: build.openshift.io/v1
+metadata:
+  name: oltp-benchmark
+spec:
+  source: 
+    git:
+      uri: https://github.com/oltpbenchmark/oltpbench
+      ref: master  
+  strategy: 
+    sourceStrategy:
+      from:
+        kind: "DockerImage"
+        name: "registry.access.redhat.com/ubi8/openjdk-11:latest" 
+      incremental: true
+  output: 
+    to:
+      kind: "ImageStreamTag"
+      name: "oltpbenchmark:latest"      
+---
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  name: tpccbenchmark
+spec: {}
+---
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  name: oltpbenchmark
+spec: {}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tpccbenchmark-helper-pod
+spec:
+  selector:
+    matchLabels:
+      app: tpccbenchmark
+  template:
+    metadata:
+      labels:
+        app: tpccbenchmark
+    spec:
+      containers:
+      - command:
+        - /bin/bash
+        - -c
+        - sleep infinity
+        image:  image-registry.openshift-image-registry.svc:5000/${namespace}/tpccbenchmark:1.4
+        name: tpccbenchmark
+        volumeMounts:
+        - name: workload-config
+          mountPath: /workload-config
+        - name: certs
+          mountPath: /certs
+      volumes:
+      - name: workload-config
+        configMap:
+          name: workload-config
+      - name: certs
+        secret:
+          secretName: yugabyte-tls-client-cert       
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: oltpbenchmark-helper-pod
+spec:
+  selector:
+    matchLabels:
+      app: oltpbenchmark
+  template:
+    metadata:
+      labels:
+        app: oltpbenchmark
+    spec:
+      containers:
+      - command:
+        - /bin/bash
+        - -c
+        - sleep infinity
+        image:  image-registry.openshift-image-registry.svc:5000/${namespace}/oltpbenchmark:latest
+        name: oltpbenchmark
+        volumeMounts:
+        - name: workload-config
+          mountPath: /workload-config
+        - name: oltpbenchmark-config
+          mountPath: /config  
+        - name: oltpbenchmark-config
+          mountPath: /home/jboss/config                   
+        - name: certs
+          mountPath: /certs
+      volumes:
+      - name: workload-config
+        configMap:
+          name: workload-config
+      - name: oltpbenchmark-config
+        configMap:
+          name: oltpbenchmark-config          
+      - name: certs
+        secret:
+          secretName: yugabyte-tls-client-cert  
+---
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: workload-config
+data:
+  workload.xml: | 
+    <?xml version="1.0"?>
+    <parameters>
+        <dbtype>postgres</dbtype>
+        <driver>org.postgresql.Driver</driver>
+        <DBUrl>jdbc:postgresql://yb-tservers.yugabyte.svc:5433/yugabyte?sslrootcert=/certs/ca.crt</DBUrl>
+        <username>yugabyte</username>
+        <!--<DBName>yugabyte</DBName>
+            <port>5433</port>-->
+        <password></password>
+        <isolation>TRANSACTION_REPEATABLE_READ</isolation>
+
+        <!--
+        <terminals>100</terminals>
+        -->
+
+        <batchSize>128</batchSize>
+        <useKeyingTime>true</useKeyingTime>
+        <useThinkTime>true</useThinkTime>
+        <enableForeignKeysAfterLoad>true</enableForeignKeysAfterLoad>
+        <hikariConnectionTimeoutMs>180000</hikariConnectionTimeoutMs>
+        <useStoredProcedures>true</useStoredProcedures>
+        <displayEnhancedLatencyMetrics>false</displayEnhancedLatencyMetrics>
+
+        <transactiontypes>
+          <transactiontype>
+            <name>NewOrder</name>
+          </transactiontype>
+          <transactiontype>
+            <name>Payment</name>
+          </transactiontype>
+          <transactiontype>
+            <name>OrderStatus</name>
+          </transactiontype>
+          <transactiontype>
+            <name>Delivery</name>
+          </transactiontype>
+          <transactiontype>
+            <name>StockLevel</name>
+          </transactiontype>
+        </transactiontypes>
+        <works>
+            <work>
+              <time>1800</time>
+              <rate>10000</rate>
+              <ratelimited bench="tpcc">true</ratelimited>
+              <weights>45,43,4,4,4</weights>
+            </work>
+      </works>
+        
+    </parameters>
+  log4j.properties: | 
+    # Set root logger level to DEBUG and its only appender to A1.
+    log4j.rootLogger=INFO, A1
+    log4j.rootLogger.layout=org.apache.log4j.PatternLayout
+
+    # A1 is set to be a ConsoleAppender.
+    log4j.appender.A1=org.apache.log4j.ConsoleAppender
+    log4j.appender.A1.layout=org.apache.log4j.PatternLayout
+    log4j.appender.A1.layout.ConversionPattern=%d{ABSOLUTE} (%F:%L) %-5p - %m%n
+
+    # API
+    log4j.logger.com.oltpbenchmark=INFO
+    log4j.logger.com.oltpbenchmark.api=INFO
+
+    # Benchmarks
+    log4j.logger.com.oltpbenchmark.benchmarks.tatp=INFO
+    log4j.logger.com.oltpbenchmark.benchmarks.twitter=INFO
+    log4j.logger.com.oltpbenchmark.benchmarks.wikipedia=INFO
+    log4j.logger.com.oltpbenchmark.benchmarks.epinions=INFO
+    log4j.logger.com.oltpbenchmark.benchmarks.ycsb=INFO
+    log4j.logger.com.oltpbenchmark.benchmarks.seats=INFO
+    log4j.logger.com.oltpbenchmark.benchmarks.linkbench=INFO
+    log4j.logger.com.oltpbenchmark.benchmarks.sibench=INFO
+    log4j.logger.com.oltpbenchmark.benchmarks.seats=INFO
+    log4j.logger.com.oltpbenchmark.benchmarks.auctionmark=INFO
+    log4j.logger.com.oltpbenchmark.benchmarks.chbenchmark=INFO
+
+    # Loaders
+    log4j.logger.com.oltpbenchmark.benchmarks.wikipedia.WikipediaLoader=INFO
+
+
+    !==============================================================================
+    ! log4j.properties - An example configuration properties file for log4j.
+    !
+    ! Logging levels are:
+    ! DEBUG < INFO < WARN < ERROR < FATAL
+    !==============================================================================
+
+    ! turn on the internal log4j debugging flag so we can see what it is doing
+    #log4j.debug=true
+
+    !==============================================================================
+    ! JDBC API layer call logging :
+    ! INFO shows logging, DEBUG also shows where in code the jdbc calls were made,
+    ! setting DEBUG to true might cause minor slow-down in some environments.
+    ! If you experience too much slowness, use INFO instead.
+
+    ! Log only the SQL that is executed.
+    log4j.logger.jdbc.sqlonly=DEBUG,A1
+    log4j.additivity.jdbc.sqlonly=false
+  
+
+
+

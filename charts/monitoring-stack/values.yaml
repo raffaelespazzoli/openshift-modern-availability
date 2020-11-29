@@ -1,0 +1,8 @@
+session:
+  secret: ciao
+alertmanager:
+  name: alertmanager
+prometheus:
+  name: prometheus
+grafana:
+  name: grafana

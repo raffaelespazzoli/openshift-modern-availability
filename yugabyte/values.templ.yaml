@@ -4,8 +4,10 @@ masterAddresses: yb-master-0.cluster1.yb-masters.yugabyte.svc.clusterset.local:7
 
 storage:
   master:
+    size: 300Gi
     storageClass: "yugabyte"
   tserver:
+    size: 80Gi
     storageClass: "yugabyte"
 
 replicas:
@@ -13,15 +15,21 @@ replicas:
   tserver: 3
   totalMasters: 3
 
-# resource:
-#   master:
-#     requests:
-#       cpu: 0.2
-#       memory: 500Mi
-#   tserver:
-#     requests:
-#       cpu: 0.2
-#       memory: 500Mi
+resource:
+  master:
+    requests:
+      cpu: 10
+      memory: 22Gi
+    limits:
+      cpu: null
+      memory: 22Gi 
+  tserver:
+    requests:
+      cpu: 4
+      memory: 4Gi
+    limits:
+      cpu: null
+      memory: 4Gi       
 
 tls:
   enabled: true
@@ -39,3 +47,8 @@ nodeSelector:
 
 uid: ${uid}
 guid: ${guid}  
+
+serviceMonitor:
+  enabled: true
+  extraLabels:
+    release: prom

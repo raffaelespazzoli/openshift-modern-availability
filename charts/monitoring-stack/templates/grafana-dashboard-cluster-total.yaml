@@ -1,0 +1,13 @@
+apiVersion: integreatly.org/v1alpha1
+kind: GrafanaDashboard
+metadata:
+  name: grafana-dashboard-cluster-total
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: grafana
+spec:
+  name: cluster-total.json
+  json: {{ .Files.Get "dashboards/openshift-monitoring/cluster-total.json" | toPrettyJson }}
+  plugins:
+    - name: "grafana-piechart-panel"
+      version: "1.4.0"

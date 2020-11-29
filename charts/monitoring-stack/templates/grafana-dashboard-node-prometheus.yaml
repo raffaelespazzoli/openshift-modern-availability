@@ -1,0 +1,10 @@
+apiVersion: integreatly.org/v1alpha1
+kind: GrafanaDashboard
+metadata:
+  name: grafana-dashboard-prometheus
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: grafana
+spec:
+  name: prometheus.json
+  json: {{ .Files.Get "dashboards/openshift-monitoring/prometheus.json" | toPrettyJson }}

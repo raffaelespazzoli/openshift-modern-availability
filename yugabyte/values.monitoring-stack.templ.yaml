@@ -1,0 +1,3 @@
+prometheus_datasource:
+  openshift_monitoring:
+    password: ${prometheus_password}

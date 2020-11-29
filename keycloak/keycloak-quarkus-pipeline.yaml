@@ -1,0 +1,205 @@
+apiVersion: tekton.dev/v1beta1
+kind: Pipeline
+metadata:
+  name: keycloak-quarkus-pipeline
+spec:
+  params:
+  - name: repo
+    type: string
+    description: repo
+    default: https://github.com/keycloak/keycloak
+  - name: context
+    type: string
+    description: context
+    default: ""
+  - name: image
+    type: string
+    description: image to push to
+    default: "quay.io/raffaelespazzoli/keycloak-quarkus:latest"
+  - name: registry_username
+    type: string
+    description: registry username
+    default: "raffaelespazzoli"      
+  - name: registry_password
+    type: string
+    description: resigtry_password   
+  workspaces:
+  - name: shared-workspace
+  - name: maven-settings
+  - name: dockerfile-configmap       
+  tasks:
+  - name: git-clone
+    params:
+    - name: url
+      value: $(params.repo)
+    - name: revision
+      value: master
+    - name: submodules
+      value: "true"
+    - name: depth
+      value: "1"
+    - name: sslVerify
+      value: "true"
+    - name: deleteExisting
+      value: "true"
+    taskRef:
+      kind: ClusterTask
+      name: git-clone
+    workspaces: 
+    - name: output
+      workspace: shared-workspace   
+  - name: maven-run
+    taskRef:
+      name: maven
+    runAfter:
+      - git-clone
+    params:
+    - name: MAVEN_IMAGE
+      value: registry.redhat.io/ubi8/openjdk-8
+    - name: GOALS
+      value:
+        - -DskipTests
+        - -DskipTestsuite 
+        - -DskipExamples
+        - clean
+        - install
+    workspaces:
+    - name: maven-settings
+      workspace: maven-settings
+    - name: source
+      workspace: shared-workspace
+  - name: copy-dockerfile
+    taskRef:
+      name: copy-dockerfile
+    runAfter:
+      - maven-run
+    workspaces:
+    - name: dockerfile
+      workspace: dockerfile-configmap
+    - name: source
+      workspace: shared-workspace
+  - name: build-image      
+    taskRef:
+      kind: ClusterTask
+      name: buildah
+    params:
+    - name: IMAGE
+      value: $(params.image)
+    - name: PUSH_EXTRA_ARGS
+      value: "--creds $(params.registry_username):$(params.registry_password)"
+    runAfter:
+      - copy-dockerfile
+    workspaces:
+    - name: source
+      workspace: shared-workspace                           
+---
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: copy-dockerfile
+spec:
+  params:
+    - name: pathToDockerFile
+      type: string
+      description: The path to the dockerfile to build
+      default: Dockerfile
+  workspaces:
+  - name: dockerfile
+    description: folder where the dockerfile is
+    mountPath: /dockerfile-dir
+  - name: source
+    description: folder where the source code ir
+    mountPath: /source  
+  steps:
+    - name: copy-dockerfile
+      image: ubi8
+      script: |
+        #!/usr/bin/env bash
+        cp -v $(workspaces.dockerfile.path)/$(params.pathToDockerFile) $(workspaces.source.path)/Dockerfile
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: keycloack-quarkus-dockerfile
+data:
+  Dockerfile: |
+    FROM registry.access.redhat.com/ubi8/openjdk-11
+    WORKDIR /deployments/
+    COPY --chown=1001:0 quarkus/server/target/lib /deployments/application/
+    #RUN chmod -R 777 /deployments/application
+    CMD ["java","-jar", "/deployments/application/quarkus-run.jar", "-Dquarkus.http.host=0.0.0.0"]
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: keycloack-quarkus-shared-workspace
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi          
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: maven-settings
+data:
+  settings.xml: |
+    <settings xmlns="http://maven.apache.org/SETTINGS/1.0.0"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.0.0
+      http://maven.apache.org/xsd/settings-1.0.0.xsd">
+
+      <pluginGroups>
+        <pluginGroup>org.jenkins-ci.tools</pluginGroup>
+      </pluginGroups>
+
+      <profiles>
+        <profile>
+          <id>jboss-public-repository</id>
+          <repositories>
+            <repository>
+              <id>jboss-public-repository-group</id>
+              <name>JBoss Public Maven Repository Group</name>
+              <url>https://repository.jboss.org/nexus/content/groups/public/</url>
+              <layout>default</layout>
+              <releases>
+                <enabled>true</enabled>
+                <updatePolicy>never</updatePolicy>
+              </releases>
+              <snapshots>
+                <enabled>true</enabled>
+                <updatePolicy>never</updatePolicy>
+              </snapshots>
+            </repository>
+          </repositories>
+          <pluginRepositories>
+            <pluginRepository>
+              <id>jboss-public-repository-group</id>
+              <name>JBoss Public Maven Repository Group</name>
+              <url>https://repository.jboss.org/nexus/content/groups/public/</url>
+              <layout>default</layout>
+              <releases>
+                <enabled>true</enabled>
+                <updatePolicy>never</updatePolicy>
+              </releases>
+              <snapshots>
+                <enabled>true</enabled>
+                <updatePolicy>never</updatePolicy>
+              </snapshots>
+            </pluginRepository>
+          </pluginRepositories>
+          <properties>
+            <maven.compiler.source>1.8</maven.compiler.source>
+            <maven.compiler.target>1.8</maven.compiler.target>
+          </properties>
+        </profile>
+      </profiles>
+
+      <activeProfiles>
+        <activeProfile>jboss-public-repository</activeProfile>
+      </activeProfiles>
+
+    </settings>
+

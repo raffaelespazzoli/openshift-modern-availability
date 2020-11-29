@@ -12,7 +12,11 @@ spec:
   externalAccess:
     enabled: false
   externalDatabase:
-    enabled: true    
+    enabled: true
+  # keycloakDeploymentSpec:
+  #   experimental:
+  #     env:
+  #       JDBC_PARAMS      
 ---
 apiVersion: keycloak.org/v1alpha1
 kind: KeycloakRealm
@@ -44,6 +48,7 @@ stringData:
     # Required for AWS Backup functionality
     POSTGRES_SUPERUSER: "false"
     POSTGRES_USERNAME: ${keycloak_username}
+    JDBC_PARAMS
 type: Opaque
 ---
 apiVersion: route.openshift.io/v1

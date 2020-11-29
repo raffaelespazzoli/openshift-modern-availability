@@ -1,0 +1,10 @@
+apiVersion: integreatly.org/v1alpha1
+kind: GrafanaDashboard
+metadata:
+  name: grafana-dashboard-etcd
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: grafana
+spec:
+  name: etcd.json
+  json: {{ .Files.Get "dashboards/openshift-monitoring/etcd.json" | toPrettyJson }}
