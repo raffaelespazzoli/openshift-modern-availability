@@ -127,7 +127,7 @@ data:
     WORKDIR /deployments/
     COPY --chown=1001:0 quarkus/server/target/lib /deployments/application/
     #RUN chmod -R 777 /deployments/application
-    CMD ["java","-jar", "/deployments/application/quarkus-run.jar", "-Dquarkus.http.host=0.0.0.0"]
+    CMD ["java","-Dquarkus.http.host=0.0.0.0","-jar", "/deployments/application/quarkus-run.jar"]
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim

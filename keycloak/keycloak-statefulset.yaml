@@ -1,0 +1,164 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: keycloak
+spec:
+  selector:
+    matchLabels:
+      app: keycloak
+  serviceName: keycloak
+  template:
+    metadata:
+      labels:
+        app: keycloak
+    spec:
+      containers:
+      - image: quay.io/raffaelespazzoli/keycloak-quarkus:latest
+        imagePullPolicy: Always
+        name: keycloak-quarkus
+        command:
+          - java
+          - -Dquarkus.http.host=0.0.0.0
+          - -Dkc.db.url.host=postgresql
+          - -Dkc.db.url.database=postgresql
+          - -jar
+          - /deployments/application/quarkus-run.jar
+        args:
+          - start
+          - --db-url=jdbc:postgresql://postgresql/keycloak
+          - --db-username=raffa
+          - --db-password=raffa
+        volumeMounts:
+        - mountPath: /certs
+          name: certs
+          readOnly: true
+        - mountPath: /deployments/config
+          name: config
+          readOnly: true
+      volumes:
+      - name: config
+        configMap:
+          name: application-properties
+      - name: certs
+        secret:
+          defaultMode: 420
+          secretName: keycloak-tls
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: application-properties
+data:
+  application.properties: |
+    #quarkus.log.level = DEBUG
+    quarkus.package.output-name=keycloak
+    quarkus.package.type=mutable-jar
+    quarkus.package.output-directory=lib
+    quarkus.package.user-providers-directory=../providers
+    quarkus.package.main-class=keycloak
+
+    quarkus.http.root-path=/
+    quarkus.application.name=Keycloak
+    quarkus.banner.enabled=false
+
+    # Disable health checks from extensions, since we provide our own (default is true)
+    quarkus.health.extensions.enabled=false
+
+    # Default transaction timeout
+    quarkus.transaction-manager.default-transaction-timeout=300
+
+    #
+    # The HTTP port
+    #
+    quarkus.http.port=8080
+    quarkus.http.insecure-requests=enabled
+    
+    
+    #Datasource
+    #quarkus.datasource.db-kind=h2
+    #quarkus.datasource.jdbc.url=jdbc:h2:mem:keycloak
+    quarkus.datasource.db-kind=postgresql
+    # quarkus.datasource.jdbc.url=jdbc:postgresql://postgresql/keycloak
+    # quarkus.datasource.username=raffa
+    # quarkus.datasource.password=raffa
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: keycloak
+spec:
+  clusterIP: None
+  ports:
+  - name: http
+    port: 8080
+    protocol: TCP
+    targetPort: 8080
+  - name: https
+    port: 8443
+    protocol: TCP
+    targetPort: 8443
+  selector:
+    app: keycloak
+  type: ClusterIP
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: keycloak
+spec:
+  port:
+    targetPort: 8080
+  # tls:
+  #   insecureEdgeTerminationPolicy: Redirect
+  #   termination: passthrough
+  to:
+    kind: Service
+    name: keycloak
+    weight: 100
+  wildcardPolicy: None 
+---  
+apiVersion: certmanager.k8s.io/v1alpha1
+kind: Certificate
+metadata:
+  name: keycloak
+spec:
+  # Secret names are always required.
+  secretName: keycloak-tls
+  commonName: keycloak
+  usages:
+    - server auth 
+  dnsNames:
+  - keycloak
+  - keycloak.${namespace}.svc.cluster.local
+  - keycloak.${namespace}.svc
+  - keycloak-${namespace}.apps.${base_domain}
+  duration: 168h
+  renewBefore: 1h
+  issuerRef:
+    name: internal-issuer
+---
+apiVersion: certmanager.k8s.io/v1alpha1
+kind: Issuer
+metadata:
+  name: self-signer
+spec:
+  selfSigned: {}
+---
+apiVersion: certmanager.k8s.io/v1alpha1
+kind: Certificate
+metadata:
+  name: rootca
+spec:
+  secretName: rootca
+  issuerRef:
+    name: self-signer
+  commonName: "ca.self-signer.cert-manager"
+  isCA: true
+---
+apiVersion: certmanager.k8s.io/v1alpha1
+kind: Issuer
+metadata:
+  name: internal-issuer
+spec:
+  ca:
+    secretName: rootca 
