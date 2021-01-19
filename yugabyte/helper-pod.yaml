@@ -1,56 +1,27 @@
 kind: BuildConfig
 apiVersion: build.openshift.io/v1
 metadata:
-  name: tpcc-helper-pod
+  name: tpcc-runner-pom-build
 spec:
-  source: 
-    dockerfile: | 
-      FROM registry.redhat.io/ubi8/openjdk-11
-      VOLUME /tmp-tgz
-      USER root
-      ADD https://github.com/yugabyte/tpcc/releases/download/1.4/tpcc.tar.gz /tmp-tgz/tpcc.tar.gz
-      RUN mkdir -p  /tpccbenchmark && \
-          tar -zxvf /tmp-tgz/tpcc.tar.gz -C /tpccbenchmark
-      USER 1001
-      WORKDIR /tpccbenchmark/tpcc
-      ENTRYPOINT /tpccbenchmark/tpcc/tpccbenchmark   
-  strategy: 
-    dockerStrategy: {}
-  output: 
-    to:
-      kind: "ImageStreamTag"
-      name: "tpccbenchmark:1.4"
----
-kind: BuildConfig
-apiVersion: build.openshift.io/v1
-metadata:
-  name: oltp-benchmark
-spec:
-  source: 
-    git:
-      uri: https://github.com/oltpbenchmark/oltpbench
-      ref: master  
-  strategy: 
+  source:
+    git: 
+      uri: "https://github.com/yugabyte/tpcc"
+      ref: "master"
+  strategy:
     sourceStrategy:
       from:
-        kind: "DockerImage"
-        name: "registry.access.redhat.com/ubi8/openjdk-11:latest" 
-      incremental: true
+        kind: "ImageStreamTag"
+        name: "ubi8-openjdk-11:1.3"
+        namespace: openshift
   output: 
     to:
       kind: "ImageStreamTag"
-      name: "oltpbenchmark:latest"      
+      name: "tpccbenchmark:1.5"      
 ---
 apiVersion: image.openshift.io/v1
 kind: ImageStream
 metadata:
   name: tpccbenchmark
-spec: {}
----
-apiVersion: image.openshift.io/v1
-kind: ImageStream
-metadata:
-  name: oltpbenchmark
 spec: {}
 ---
 apiVersion: apps/v1
@@ -71,7 +42,8 @@ spec:
         - /bin/bash
         - -c
         - sleep infinity
-        image:  image-registry.openshift-image-registry.svc:5000/${namespace}/tpccbenchmark:1.4
+        image:  image-registry.openshift-image-registry.svc:5000/${namespace}/tpccbenchmark:1.5
+        imagePullPolicy: Always
         name: tpccbenchmark
         volumeMounts:
         - name: workload-config
@@ -86,46 +58,7 @@ spec:
         secret:
           secretName: yugabyte-tls-client-cert       
 ---
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: oltpbenchmark-helper-pod
-spec:
-  selector:
-    matchLabels:
-      app: oltpbenchmark
-  template:
-    metadata:
-      labels:
-        app: oltpbenchmark
-    spec:
-      containers:
-      - command:
-        - /bin/bash
-        - -c
-        - sleep infinity
-        image:  image-registry.openshift-image-registry.svc:5000/${namespace}/oltpbenchmark:latest
-        name: oltpbenchmark
-        volumeMounts:
-        - name: workload-config
-          mountPath: /workload-config
-        - name: oltpbenchmark-config
-          mountPath: /config  
-        - name: oltpbenchmark-config
-          mountPath: /home/jboss/config                   
-        - name: certs
-          mountPath: /certs
-      volumes:
-      - name: workload-config
-        configMap:
-          name: workload-config
-      - name: oltpbenchmark-config
-        configMap:
-          name: oltpbenchmark-config          
-      - name: certs
-        secret:
-          secretName: yugabyte-tls-client-cert  
----
+  #        <jdbcURL>jdbc:postgresql://yb-tservers.yugabyte.svc:5433/yugabyte?sslrootcert=/certs/ca.crt&ssl=true</jdbcURL>
 kind: ConfigMap
 apiVersion: v1
 metadata:
@@ -136,11 +69,13 @@ data:
     <parameters>
         <dbtype>postgres</dbtype>
         <driver>org.postgresql.Driver</driver>
-        <DBUrl>jdbc:postgresql://yb-tservers.yugabyte.svc:5433/yugabyte?sslrootcert=/certs/ca.crt</DBUrl>
+        <jdbcURL>jdbc:postgresql://yb-tserver-service.yugabyte.svc:5433/yugabyte?ssl=true&amp;sslmode=require&amp;sslrootcert=/certs/ca.crt&amp;sslcert=/certs/tls.crt&amp;sslkey=/certs/key.pk8&amp;sslpassword=changeit</jdbcURL>
         <username>yugabyte</username>
+        <sslCert></sslCert>
+        <sslKey></sslKey>
         <!--<DBName>yugabyte</DBName>
             <port>5433</port>-->
-        <password></password>
+        <password>yugabyte</password>
         <isolation>TRANSACTION_REPEATABLE_READ</isolation>
 
         <!--

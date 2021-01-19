@@ -25,7 +25,6 @@ export cluster_base_domain=$(oc --context ${control_cluster} get dns cluster -o 
 export global_base_domain=global.${cluster_base_domain#*.}
 for context in ${cluster1} ${cluster2} ${cluster3}; do
   oc --context ${context} new-project yugabyte
-  oc --context ${context} label namespace yugabyte openshift.io/cluster-monitoring='true' --overwrite=true
   export cluster=${context}
   export uid=$(oc --context ${context} get project yugabyte -o jsonpath='{.metadata.annotations.openshift\.io/sa\.scc\.uid-range}'|sed 's/\/.*//')
   export guid=$(oc --context ${context} get project yugabyte -o jsonpath='{.metadata.annotations.openshift\.io/sa\.scc\.supplemental-groups}'|sed 's/\/.*//')  
@@ -47,6 +46,8 @@ done
 
 Install monitoring stack
 
+Note this script tends to fail as helm does not handle well large charts. It's mostly safe to retry.
+
 ```shell
 for context in ${cluster1} ${cluster2} ${cluster3}; do
   export prometheus_password=$(oc --context ${context} extract secret/grafana-datasources -n openshift-monitoring --keys=prometheus.yaml --to=- | jq -r '.datasources[0].basicAuthPassword')
@@ -59,16 +60,24 @@ done
 
 ## Running the tpcc benchmark
 
+### Workaround pkcs8 certificates
+
+```shell
+for context in ${cluster1} ${cluster2} ${cluster3}; do
+  oc --context ${context} get secret yugabyte-tls-client-cert -n yugabyte -o jsonpath='{.data.tls\.key}' | base64 -d > /tmp/key.pem
+  openssl pkcs8 -topk8 -inform PEM -in /tmp/key.pem -outform DER -out /tmp/key.pk8 -v1 PBE-MD5-DES -nocrypt
+  export key=$(cat /tmp/key.pk8 | base64 -w 0)
+  oc --context ${context} patch secret yugabyte-tls-client-cert -n yugabyte --patch "$(envsubst < ./yugabyte/cert-patch.yaml)" --type merge
+done
+```
+
 ### Create helper pod
 
 ```shell
 for context in ${cluster1} ${cluster2} ${cluster3}; do
   export namespace=yugabyte
   envsubst < ./yugabyte/helper-pod.yaml | oc --context ${context} apply -f - -n yugabyte
-  oc --context ${context} delete configmap oltpbenchmark-config -n yugabyte
-  oc --context ${context} create configmap oltpbenchmark-config -n yugabyte --from-file=./yugabyte/oltpbenchmark/config
-  oc --context ${context} start-build tpcc-helper-pod -n yugabyte
-  oc --context ${context} start-build oltp-benchmark -n yugabyte
+  oc --context ${context} start-build tpcc-runner-pom-build -n yugabyte
 done
 ```
 
@@ -78,15 +87,8 @@ wait for the pod to come up
 
 ```shell
 export helper_pod=$(oc --context ${cluster1} get pod -n yugabyte | grep tpccbenchmark-helper-pod | awk '{print $1}')
-oc --context ${cluster1} exec -n yugabyte ${helper_pod} -- /tpccbenchmark/tpcc/tpccbenchmark --create=true --load=true --warehouses=1000 --loaderthreads 48 -c /workload-config/workload.xml
-
-/deployments/oltpbench-1.0-jar-with-dependencies.jar
-
-```
-
-```shell
-export helper_pod=$(oc --context ${cluster1} get pod -n yugabyte | grep oltpbenchmark-helper-pod | awk '{print $1}')
-oc --context ${cluster1} exec -n yugabyte ${helper_pod} -- java -Xmx8G -Dlog4j.configuration=/workload-config/log4j.properties -jar /deployments/oltpbench-1.0-jar-with-dependencies.jar -b tpcc --create=true --load=true --warehouses=1000 --loaderthreads 48 -c /workload-config/workload.xml
+oc --context ${cluster1} exec -n yugabyte ${helper_pod} -- ln -s /tmp/src/config ./config
+oc --context ${cluster1} exec -n yugabyte ${helper_pod} -- java -Xmx8G -Dlog4j.configuration=/workload-config/log4j.properties -jar /deployments/oltpbench-1.0-jar-with-dependencies.jar --create=true --load=true --warehouses=1000 --loaderthreads 48 -c /workload-config/workload.xml
 ```
 
 ## Trouleshooting
@@ -111,5 +113,13 @@ done
 ```shell
 for context in ${cluster1} ${cluster2} ${cluster3}; do
   helm --kube-context ${context} uninstall monitoring-stack -n yugabyte
+done
+```
+
+### Cleanup
+
+```shell
+for context in ${cluster1} ${cluster2} ${cluster3}; do
+  oc --context ${context} delete project yugabyte
 done
 ```

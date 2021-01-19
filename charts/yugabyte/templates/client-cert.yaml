@@ -10,6 +10,12 @@ spec:
     - client auth  
   duration: 168h
   renewBefore: 1h
+  keystores:
+    pkcs12:
+      create: true
+      passwordSecretRef:
+        name: yugabyte-tls-client-cert-password
+        key: password
   issuerRef:
     name: vault-issuer
     # We can reference ClusterIssuers by changing the kind here.
@@ -18,3 +24,11 @@ spec:
     # This is optional since cert-manager will default to this value however
     # if you are using an external issuer, change this to that issuer group.
     group: cert-manager.io
+--- 
+kind: Secret
+apiVersion: v1
+metadata:
+  name: yugabyte-tls-client-cert-password
+stringData:
+  password: changeit
+type: Opaque

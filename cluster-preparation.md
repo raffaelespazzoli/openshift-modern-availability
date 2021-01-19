@@ -233,7 +233,7 @@ done
 ### Deploy submariner via CLI
 
 ```shell
-curl -Ls https://get.submariner.io | VERSION=0.7.0 bash
+curl -Ls https://get.submariner.io | VERSION=0.8.0 bash
 subctl deploy-broker --kubecontext ${control_cluster} --service-discovery
 mv broker-info.subm /tmp/broker-info.subm
 for context in ${cluster1} ${cluster2} ${cluster3}; do
