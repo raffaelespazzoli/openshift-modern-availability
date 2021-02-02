@@ -103,6 +103,7 @@ https://github.com/jhatcher9999/tpcc-distributed-k8s
 refer also to this: https://github.com/jhatcher9999/tpcc-distributed-k8s
 
 ```shell
+oc --context ${cluster1} delete pod tpcc-loader -n cockroachdb
 oc --context ${cluster1} run tpcc-loader -n cockroachdb -ti --image=mgoddard/crdb-workload:1.0 --restart='Never' -- /cockroach/workload init tpcc postgresql://dba:dba@cockroachdb-public.cockroachdb.svc.cluster.local:26257?sslmode=require --warehouses 1000 --partition-affinity=0 --partitions=3 --partition-strategy=leases --drop --zones=us-east-1,us-east-2,us-west-2 --deprecated-fk-indexes
 ```
 

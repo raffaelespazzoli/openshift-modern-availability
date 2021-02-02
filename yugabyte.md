@@ -81,6 +81,12 @@ for context in ${cluster1} ${cluster2} ${cluster3}; do
 done
 ```
 
+### Set preferential ergions
+
+```shell
+oc --context ${cluster1} exec -n yugabyte -c yb-master yb-master-0 -- /usr/local/bin/yb-admin --master_addresses yb-master-0.cluster1.yb-masters.yugabyte.svc.clusterset.local:7100,yb-master-0.cluster2.yb-masters.yugabyte.svc.clusterset.local:7100,yb-master-0.cluster3.yb-masters.yugabyte.svc.clusterset.local:7100 --cert-dir-name /opt/certs/yugabyte set_preferred_zones aws.us-east-1.us-east-1a aws.us-east-1.us-east-1b aws.us-east-1.us-east-1c aws.us-east-2.us-east-2a aws.us-east-2.us-east-2b aws.us-east-2.us-east-2c
+```
+
 wait for the pod to come up
 
 ### Load data

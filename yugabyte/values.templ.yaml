@@ -1,4 +1,12 @@
+# this image has the bugfix
+# isanketh/yugabyte:dmitry-tls-write-txn-fix-2.5.2.0-b0
+
 isMultiAz: true
+
+Image:
+  repository: "isanketh/yugabyte"
+  tag: dmitry-tls-write-txn-fix-2.5.2.0-b0
+  pullPolicy: IfNotPresent
 
 masterAddresses: yb-master-0.cluster1.yb-masters.yugabyte.svc.clusterset.local:7100,yb-master-0.cluster2.yb-masters.yugabyte.svc.clusterset.local:7100,yb-master-0.cluster3.yb-masters.yugabyte.svc.clusterset.local:7100
 
@@ -18,18 +26,18 @@ replicas:
 resource:
   master:
     requests:
-      cpu: 10
-      memory: 22Gi
-    limits:
-      cpu: null
-      memory: 22Gi 
-  tserver:
-    requests:
       cpu: 4
       memory: 4Gi
     limits:
       cpu: null
-      memory: 4Gi       
+      memory: 4Gi
+  tserver:
+    requests:
+      cpu: 10
+      memory: 22Gi
+    limits:
+      cpu: null
+      memory: 22Gi       
 
 tls:
   enabled: true

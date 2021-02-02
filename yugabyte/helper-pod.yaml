@@ -69,7 +69,7 @@ data:
     <parameters>
         <dbtype>postgres</dbtype>
         <driver>org.postgresql.Driver</driver>
-        <jdbcURL>jdbc:postgresql://yb-tserver-service.yugabyte.svc:5433/yugabyte?ssl=true&amp;sslmode=require&amp;sslrootcert=/certs/ca.crt&amp;sslcert=/certs/tls.crt&amp;sslkey=/certs/key.pk8&amp;sslpassword=changeit</jdbcURL>
+        <jdbcURL>jdbc:postgresql://yb-tserver-0.yb-tservers.yugabyte.svc:5433/yugabyte?ssl=true&amp;sslmode=require&amp;sslrootcert=/certs/ca.crt&amp;sslcert=/certs/tls.crt&amp;sslkey=/certs/key.pk8&amp;sslpassword=changeit,jdbc:postgresql://yb-tserver-1.yb-tservers.yugabyte.svc:5433/yugabyte?ssl=true&amp;sslmode=require&amp;sslrootcert=/certs/ca.crt&amp;sslcert=/certs/tls.crt&amp;sslkey=/certs/key.pk8&amp;sslpassword=changeit,jdbc:postgresql://yb-tserver-2.yb-tservers.yugabyte.svc:5433/yugabyte?ssl=true&amp;sslmode=require&amp;sslrootcert=/certs/ca.crt&amp;sslcert=/certs/tls.crt&amp;sslkey=/certs/key.pk8&amp;sslpassword=changeit</jdbcURL>
         <username>yugabyte</username>
         <sslCert></sslCert>
         <sslKey></sslKey>
@@ -167,7 +167,49 @@ data:
     ! Log only the SQL that is executed.
     log4j.logger.jdbc.sqlonly=DEBUG,A1
     log4j.additivity.jdbc.sqlonly=false
-  
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: yb-tservers-service
+spec:
+  ports:
+    - name: http-ui
+      protocol: TCP
+      port: 9000
+      targetPort: 9000
+    - name: http-ycql-met
+      protocol: TCP
+      port: 12000
+      targetPort: 12000
+    - name: http-yedis-met
+      protocol: TCP
+      port: 11000
+      targetPort: 11000
+    - name: http-ysql-met
+      protocol: TCP
+      port: 13000
+      targetPort: 13000
+    - name: tcp-rpc-port
+      protocol: TCP
+      port: 9100
+      targetPort: 9100
+    - name: tcp-yedis-port
+      protocol: TCP
+      port: 6379
+      targetPort: 6379
+    - name: tcp-yql-port
+      protocol: TCP
+      port: 9042
+      targetPort: 9042
+    - name: tcp-ysql-port
+      protocol: TCP
+      port: 5433
+      targetPort: 5433
+  selector:
+    app: yb-tserver
+  type: ClusterIP
+  sessionAffinity: None
 
 
 
