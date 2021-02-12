@@ -10,7 +10,7 @@
       "Action": "sts:AssumeRoleWithWebIdentity",
       "Condition": {
         "StringEquals": {
-         "${oidc_url}:sub": "system:serviceaccount:k8gb:external-dns"
+         "${oidc_hostname}:sub": "system:serviceaccount:k8gb:external-dns"
         }
        }      
     }
