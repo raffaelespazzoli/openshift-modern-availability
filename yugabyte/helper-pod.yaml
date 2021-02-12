@@ -69,12 +69,12 @@ data:
     <parameters>
         <dbtype>postgres</dbtype>
         <driver>org.postgresql.Driver</driver>
-        <jdbcURL>jdbc:postgresql://yb-tserver-0.yb-tservers.yugabyte.svc:5433/yugabyte?ssl=true&amp;sslmode=require&amp;sslrootcert=/certs/ca.crt&amp;sslcert=/certs/tls.crt&amp;sslkey=/certs/key.pk8&amp;sslpassword=changeit,jdbc:postgresql://yb-tserver-1.yb-tservers.yugabyte.svc:5433/yugabyte?ssl=true&amp;sslmode=require&amp;sslrootcert=/certs/ca.crt&amp;sslcert=/certs/tls.crt&amp;sslkey=/certs/key.pk8&amp;sslpassword=changeit,jdbc:postgresql://yb-tserver-2.yb-tservers.yugabyte.svc:5433/yugabyte?ssl=true&amp;sslmode=require&amp;sslrootcert=/certs/ca.crt&amp;sslcert=/certs/tls.crt&amp;sslkey=/certs/key.pk8&amp;sslpassword=changeit</jdbcURL>
+        <jdbcURL>jdbc:postgresql://yb-tservers-service.yugabyte.svc:5433/yugabyte?ssl=true&amp;sslmode=require&amp;sslrootcert=/certs/ca.crt&amp;sslcert=/certs/tls.crt&amp;sslkey=/certs/key.pk8&amp;sslpassword=changeit</jdbcURL>
         <username>yugabyte</username>
-        <sslCert></sslCert>
-        <sslKey></sslKey>
-        <!--<DBName>yugabyte</DBName>
-            <port>5433</port>-->
+        <sslCert>/certs/tls.crt</sslCert>
+        <sslKey>/certs/key.pk8</sslKey>
+        <DBName>yugabyte</DBName>
+        <port>5433</port>
         <password>yugabyte</password>
         <isolation>TRANSACTION_REPEATABLE_READ</isolation>
 
@@ -109,7 +109,7 @@ data:
         </transactiontypes>
         <works>
             <work>
-              <time>1800</time>
+              <time>3600</time>
               <rate>10000</rate>
               <ratelimited bench="tpcc">true</ratelimited>
               <weights>45,43,4,4,4</weights>

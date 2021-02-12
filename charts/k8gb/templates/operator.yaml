@@ -1,0 +1,117 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: k8gb
+  namespace: {{ .Release.Namespace }}
+  labels:
+{{ include "chart.labels" . | indent 4  }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: k8gb
+  template:
+    metadata:
+      labels:
+        name: k8gb
+    spec:
+      {{ if .Values.k8gb.hostAlias.enabled }}
+      hostAliases:
+        - ip: "{{ .Values.k8gb.hostAlias.ip }}"
+          hostnames:
+            {{- range.Values.k8gb.hostAlias.hostnames }}
+            - {{ . }}
+            {{- end }}
+      {{ end }}
+      serviceAccountName: k8gb
+      containers:
+        - name: k8gb
+          image: {{ .Values.k8gb.imageRepo }}:{{ .Values.k8gb.imageTag | default .Chart.AppVersion }}
+          imagePullPolicy: Always
+          securityContext:
+            #runAsUser: 1000
+            runAsNonRoot: true
+            readOnlyRootFilesystem: true
+          resources:
+            requests:
+              memory: "32Mi"
+              cpu: "100m"
+            limits:
+              memory: "128Mi"
+              cpu: "500m"
+          env:
+            - name: WATCH_NAMESPACE
+              value: ""
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: OPERATOR_NAME
+              value: "k8gb"
+            - name: K8GB_VERSION
+              value: {{ quote .Chart.AppVersion }}
+            - name: CLUSTER_GEO_TAG
+              value: {{ quote .Values.k8gb.clusterGeoTag }}
+            - name: EXT_GSLB_CLUSTERS_GEO_TAGS
+              value: {{ quote .Values.k8gb.extGslbClustersGeoTags }}
+            - name: EDGE_DNS_ZONE
+              value: {{ .Values.k8gb.edgeDNSZone }}
+            - name: EDGE_DNS_SERVER
+              value: {{ .Values.k8gb.edgeDNSServer }}
+            - name: DNS_ZONE
+              value: {{ .Values.k8gb.dnsZone }}
+            - name: RECONCILE_REQUEUE_SECONDS
+              value: {{ quote .Values.k8gb.reconcileRequeueSeconds}}
+            {{ if .Values.infoblox.enabled }}
+            - name: INFOBLOX_GRID_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: infoblox
+                  key: INFOBLOX_GRID_HOST
+            - name: INFOBLOX_WAPI_VERSION
+              valueFrom:
+                configMapKeyRef:
+                  name: infoblox
+                  key: INFOBLOX_WAPI_VERSION
+            - name: INFOBLOX_WAPI_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: infoblox
+                  key: INFOBLOX_WAPI_PORT
+            - name: INFOBLOX_HTTP_REQUEST_TIMEOUT
+              valueFrom:
+                configMapKeyRef:
+                  name: infoblox
+                  key: INFOBLOX_HTTP_REQUEST_TIMEOUT
+            - name: INFOBLOX_HTTP_POOL_CONNECTIONS
+              valueFrom:
+                configMapKeyRef:
+                  name: infoblox
+                  key: INFOBLOX_HTTP_POOL_CONNECTIONS
+            - name: EXTERNAL_DNS_INFOBLOX_WAPI_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: infoblox
+                  key: EXTERNAL_DNS_INFOBLOX_WAPI_USERNAME
+            - name: EXTERNAL_DNS_INFOBLOX_WAPI_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: infoblox
+                  key: EXTERNAL_DNS_INFOBLOX_WAPI_PASSWORD
+            {{ end }}
+            {{ if .Values.route53.enabled }}
+            - name: ROUTE53_ENABLED
+              value: "true"
+            {{ end }}
+            {{ if .Values.ns1.enabled }}
+            - name: NS1_ENABLED
+              value: "true"
+            {{ end }}
+            {{ if .Values.k8gb.exposeCoreDNS }}
+            - name: COREDNS_EXPOSED
+              value: "true"
+            {{ end }}

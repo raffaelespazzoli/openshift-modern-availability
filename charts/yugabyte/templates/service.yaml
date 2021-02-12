@@ -366,7 +366,8 @@ spec:
             --undefok=num_cpus,enable_ysql
             --placement_cloud=aws
             --placement_region=${region}
-            --placement_zone=${zone}          
+            {{- /* --placement_zone=${zone} */}}
+            --placement_zone=${region}-zone          
           {{- if $root.Values.tls.enabled }}
             --certs_dir=/opt/certs/yugabyte
             --use_node_to_node_encryption=true
@@ -408,7 +409,8 @@ spec:
             --undefok=num_cpus,enable_ysql
             --placement_cloud=aws
             --placement_region=${region}
-            --placement_zone=${zone}           
+            {{- /* --placement_zone=${zone} */}}
+            --placement_zone=${region}-zone           
           {{- if $root.Values.tls.enabled }}
             --certs_dir=/opt/certs/yugabyte
             --use_node_to_node_encryption=true
@@ -477,12 +479,12 @@ spec:
         - name: {{ $service.label }}-yugabyte-tls-cert-{{ . }}
           secret:
             secretName: {{ $service.label }}-yugabyte-tls-cert-{{ . }}
-            defaultMode: 256
+            defaultMode: 0400
         {{- end }}
         - name: yugabyte-tls-client-cert
           secret:
             secretName: yugabyte-tls-client-cert
-            defaultMode: 256
+            defaultMode: 0400
         {{- end }}
         - name: topology-conf
           emptyDir: {}

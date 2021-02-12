@@ -1,0 +1,19 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "",
+      "Effect": "Allow",
+      "Principal": {
+        "Federated": "${oidc_arn}"
+      },
+      "Action": "sts:AssumeRoleWithWebIdentity",
+      "Condition": {
+        "__doc_comment": "scope the role to the service account (optional)",
+        "StringEquals": {
+         "${oidc_url}:sub": "system:serviceaccount:k8gb:external-dns"
+        }
+       }      
+    }
+  ]
+}

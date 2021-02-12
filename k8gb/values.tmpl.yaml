@@ -1,0 +1,15 @@
+k8gb:
+  dnsZone: ${global_base_domain} # dnsZone controlled by gslb
+  edgeDNSZone: ${base_domain} # main zone which would contain gslb zone to delegate
+  edgeDNSServer: "4.4.4.4" # use this DNS server as a main resolver to enable cross k8gb DNS based communication
+  clusterGeoTag: ${region} # used for places where we need to distinguish between differnet Gslb instances
+  extGslbClustersGeoTags: ${other_regions} # comma-separated list of external gslb geo tags to pair with
+  exposeCoreDNS: true # Create Service type LoadBalancer to expose CoreDNS
+
+externaldns:
+  expose53onWorkers: false # open 53/udp on workers nodes with nginx controller
+
+route53:
+  enabled: true
+  hostedZoneID: ${cluster_zone_id}
+  irsaRole: ${iam_role_arn}

@@ -60,6 +60,18 @@ done
 
 ## Running the tpcc benchmark
 
+### Change pid limit
+
+The yugabyte tpcc test run as a java client that create multiple pods, run the following command to enable the container to create a high number of java threads
+
+```shell
+for context in ${cluster1} ${cluster2} ${cluster3}; do
+  oc --context ${context} apply -f ./yugabyte/high-pids-machine-config.yaml
+done
+```
+
+This will likely reboot all of your nodes, so it might take a while
+
 ### Workaround pkcs8 certificates
 
 ```shell
@@ -71,6 +83,22 @@ for context in ${cluster1} ${cluster2} ${cluster3}; do
 done
 ```
 
+### Set preferential regions
+
+```shell
+oc --context ${cluster1} exec -n yugabyte -c yb-master yb-master-0 -- /usr/local/bin/yb-admin --master_addresses yb-master-0.cluster1.yb-masters.yugabyte.svc.clusterset.local:7100,yb-master-0.cluster2.yb-masters.yugabyte.svc.clusterset.local:7100,yb-master-0.cluster3.yb-masters.yugabyte.svc.clusterset.local:7100 --certs_dir_name /opt/certs/yugabyte modify_placement_info aws.us-east-1.us-east-1-zone,aws.us-east-2.us-east-2-zone,aws.us-west-2.us-west-2-zone 3
+
+oc --context ${cluster1} exec -n yugabyte -c yb-master yb-master-0 -- /usr/local/bin/yb-admin --master_addresses yb-master-0.cluster1.yb-masters.yugabyte.svc.clusterset.local:7100,yb-master-0.cluster2.yb-masters.yugabyte.svc.clusterset.local:7100,yb-master-0.cluster3.yb-masters.yugabyte.svc.clusterset.local:7100 --certs_dir_name /opt/certs/yugabyte set_preferred_zones aws.us-east-1.us-east-1-zone aws.us-east-2.us-east-2-zone
+```
+
+<!-- waiting for zone level fix>
+```shell
+oc --context ${cluster1} exec -n yugabyte -c yb-master yb-master-0 -- /usr/local/bin/yb-admin --master_addresses yb-master-0.cluster1.yb-masters.yugabyte.svc.clusterset.local:7100,yb-master-0.cluster2.yb-masters.yugabyte.svc.clusterset.local:7100,yb-master-0.cluster3.yb-masters.yugabyte.svc.clusterset.local:7100 --certs_dir_name /opt/certs/yugabyte modify_placement_info aws.us-east-1.us-east-1a,aws.us-east-1.us-east-1b,aws.us-east-1.us-east-1c,aws.us-east-2.us-east-2a,aws.us-east-2.us-east-2b,aws.us-east-2.us-east-2c,aws.us-west-2.us-west-2a,aws.us-west-2.us-west-2b,aws.us-west-2.us-west-2c 3
+
+oc --context ${cluster1} exec -n yugabyte -c yb-master yb-master-0 -- /usr/local/bin/yb-admin --master_addresses yb-master-0.cluster1.yb-masters.yugabyte.svc.clusterset.local:7100,yb-master-0.cluster2.yb-masters.yugabyte.svc.clusterset.local:7100,yb-master-0.cluster3.yb-masters.yugabyte.svc.clusterset.local:7100 --certs_dir_name /opt/certs/yugabyte set_preferred_zones aws.us-east-1.us-east-1a aws.us-east-1.us-east-1b aws.us-east-1.us-east-1c aws.us-east-2.us-east-2a aws.us-east-2.us-east-2b aws.us-east-2.us-east-2c
+```
+-->
+
 ### Create helper pod
 
 ```shell
@@ -81,20 +109,43 @@ for context in ${cluster1} ${cluster2} ${cluster3}; do
 done
 ```
 
-### Set preferential ergions
-
-```shell
-oc --context ${cluster1} exec -n yugabyte -c yb-master yb-master-0 -- /usr/local/bin/yb-admin --master_addresses yb-master-0.cluster1.yb-masters.yugabyte.svc.clusterset.local:7100,yb-master-0.cluster2.yb-masters.yugabyte.svc.clusterset.local:7100,yb-master-0.cluster3.yb-masters.yugabyte.svc.clusterset.local:7100 --cert-dir-name /opt/certs/yugabyte set_preferred_zones aws.us-east-1.us-east-1a aws.us-east-1.us-east-1b aws.us-east-1.us-east-1c aws.us-east-2.us-east-2a aws.us-east-2.us-east-2b aws.us-east-2.us-east-2c
-```
-
 wait for the pod to come up
 
 ### Load data
 
 ```shell
 export helper_pod=$(oc --context ${cluster1} get pod -n yugabyte | grep tpccbenchmark-helper-pod | awk '{print $1}')
-oc --context ${cluster1} exec -n yugabyte ${helper_pod} -- ln -s /tmp/src/config ./config
-oc --context ${cluster1} exec -n yugabyte ${helper_pod} -- java -Xmx8G -Dlog4j.configuration=/workload-config/log4j.properties -jar /deployments/oltpbench-1.0-jar-with-dependencies.jar --create=true --load=true --warehouses=1000 --loaderthreads 48 -c /workload-config/workload.xml
+oc --context ${cluster1} exec -n yugabyte ${helper_pod} -- ln -sf /tmp/src/config ./config
+oc --context ${cluster1} exec -n yugabyte ${helper_pod} -- java -Xmx8G -Dlog4j.configuration=/workload-config/log4j.properties -jar /deployments/oltpbench-1.0-jar-with-dependencies.jar --create=true --load=true --warehouses=1000 --loaderthreads 36 -c /workload-config/workload.xml
+```
+
+### Run tests
+
+open three terminals, try to start the following commands at the same time
+
+in terminal one run
+
+```shell
+export helper_pod=$(oc --context cluster1 get pod -n yugabyte | grep tpccbenchmark-helper-pod | awk '{print $1}')
+oc --context cluster1 exec -n yugabyte ${helper_pod} -- ln -sf /tmp/src/config ./config
+oc --context cluster1 exec -n yugabyte ${helper_pod} -- java -Xmx8G -Dlog4j.configuration=/workload-config/log4j.properties -jar /deployments/oltpbench-1.0-jar-with-dependencies.jar -c /workload-config/workload.xml --warehouses=334 --execute=true --num-connections=200 --start-warehouse-id=1 --total-warehouses=1000 --warmup-time-secs=60 --nodes=yb-tservers-service.yugabyte.svc
+
+```
+
+in terminal two run:
+
+```shell
+export helper_pod=$(oc --context cluster2 get pod -n yugabyte | grep tpccbenchmark-helper-pod | awk '{print $1}')
+oc --context cluster2 exec -n yugabyte ${helper_pod} -- ln -sf /tmp/src/config ./config
+oc --context cluster2 exec -n yugabyte ${helper_pod} -- java -Xmx8G -Dlog4j.configuration=/workload-config/log4j.properties -jar /deployments/oltpbench-1.0-jar-with-dependencies.jar -c /workload-config/workload.xml --warehouses=333 --execute=true --num-connections=200 --start-warehouse-id=335 --total-warehouses=1000 --warmup-time-secs=60 --nodes=yb-tservers-service.yugabyte.svc
+```
+  
+in terminal three run
+
+```shell
+export helper_pod=$(oc --context cluster3 get pod -n yugabyte | grep tpccbenchmark-helper-pod | awk '{print $1}')
+oc --context cluster3 exec -n yugabyte ${helper_pod} -- ln -sf /tmp/src/config ./config
+oc --context cluster3 exec -n yugabyte ${helper_pod} -- java -Xmx8G -Dlog4j.configuration=/workload-config/log4j.properties -jar /deployments/oltpbench-1.0-jar-with-dependencies.jar -c /workload-config/workload.xml --warehouses=333 --execute=true --num-connections=200 --start-warehouse-id=668 --total-warehouses=1000 --warmup-time-secs=60 --nodes=yb-tservers-service.yugabyte.svc
 ```
 
 ## Trouleshooting

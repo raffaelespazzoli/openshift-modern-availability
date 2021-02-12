@@ -108,7 +108,6 @@ export cluster2=cluster2
 export cluster3=cluster3
 ```
 
-
 Now the `${cluster1}`,`${cluster2}` and `${cluster3}` variables contain the kube context to be used to connect to the respective clusters.
 
 ## Deploy global-load-balancer-operator

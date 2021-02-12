@@ -12,10 +12,10 @@ masterAddresses: yb-master-0.cluster1.yb-masters.yugabyte.svc.clusterset.local:7
 
 storage:
   master:
-    size: 300Gi
+    size: 80Gi
     storageClass: "yugabyte"
   tserver:
-    size: 80Gi
+    size: 300Gi
     storageClass: "yugabyte"
 
 replicas:
