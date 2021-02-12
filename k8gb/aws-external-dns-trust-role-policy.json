@@ -9,7 +9,6 @@
       },
       "Action": "sts:AssumeRoleWithWebIdentity",
       "Condition": {
-        "__doc_comment": "scope the role to the service account (optional)",
         "StringEquals": {
          "${oidc_url}:sub": "system:serviceaccount:k8gb:external-dns"
         }
