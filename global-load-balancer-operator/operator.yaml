@@ -4,8 +4,7 @@ kind: OperatorGroup
 metadata:
   name: global-load-balancer-operator
 spec:
-  targetNamespaces:
-  - global-load-balancer-operator
+  targetNamespaces: []
 ---
 apiVersion: operators.coreos.com/v1alpha1
 kind: Subscription

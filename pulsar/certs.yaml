@@ -1,0 +1,218 @@
+---
+apiVersion: certmanager.k8s.io/v1alpha1
+kind: Issuer
+metadata:
+  name: self-signer
+spec:
+  selfSigned: {}
+---
+apiVersion: certmanager.k8s.io/v1alpha1
+kind: Certificate
+metadata:
+  name: rootca
+spec:
+  secretName: rootca
+  issuerRef:
+    name: self-signer
+  commonName: "ca.self-signer.cert-manager"
+  isCA: true
+---
+apiVersion: certmanager.k8s.io/v1alpha1
+kind: Issuer
+metadata:
+  name: pulsar-ca
+spec:
+  ca:
+    secretName: rootca
+---    
+apiVersion: certmanager.k8s.io/v1alpha1
+kind: Certificate
+metadata:
+  name: "pulsar-proxy"
+spec:
+  secretName: "pulsar-tls-proxy"
+  organization: 
+  - pulsar
+  commonName: "pulsar-proxy"
+  isCA: false
+  usages:
+    - server auth
+    - client auth
+  dnsNames:
+    - "pulsar-proxy.pulsar.svc.cluster.local"
+    - "pulsar-proxy-0.pulsar-proxy.pulsar.svc.cluster.local"
+    - "pulsar-proxy-1.pulsar-proxy.pulsar.svc.cluster.local"
+    - "pulsar-proxy-2.pulsar-proxy.pulsar.svc.cluster.local"    
+    - "pulsar-proxy.pulsar.svc"
+    - "pulsar-proxy-0.pulsar-proxy.pulsar.svc" 
+    - "pulsar-proxy-1.pulsar-proxy.pulsar.svc" 
+    - "pulsar-proxy-2.pulsar-proxy.pulsar.svc" 
+  issuerRef:
+    name: "pulsar-ca"
+---
+apiVersion: certmanager.k8s.io/v1alpha1
+kind: Certificate
+metadata:
+  name: "pulsar-broker"
+spec:
+  secretName: "pulsar-tls-broker"
+  organization: 
+  - pulsar
+  commonName: "pulsar-broker"
+  isCA: false
+  usages:
+    - server auth
+    - client auth
+  dnsNames:
+    - "pulsar-broker.pulsar.svc.cluster.local"
+    - "pulsar-broker-0.pulsar-broker.pulsar.svc.cluster.local"
+    - "pulsar-broker-1.pulsar-broker.pulsar.svc.cluster.local"
+    - "pulsar-broker-2.pulsar-broker.pulsar.svc.cluster.local"    
+    - "pulsar-broker.pulsar.svc"
+    - "pulsar-broker-0.pulsar-broker.pulsar.svc" 
+    - "pulsar-broker-1.pulsar-broker.pulsar.svc" 
+    - "pulsar-broker-2.pulsar-broker.pulsar.svc" 
+  issuerRef:
+    name: "pulsar-ca"
+---
+apiVersion: certmanager.k8s.io/v1alpha1
+kind: Certificate
+metadata:
+  name: "pulsar-pulsar-bookie"
+spec:
+  secretName: "pulsar-tls-bookie"
+  organization: 
+  - pulsar
+  commonName: "pulsar-bookie"
+  isCA: false
+  usages:
+    - server auth
+    - client auth
+  dnsNames:
+    - "pulsar-bookie.pulsar.svc.cluster.local"
+    - "pulsar-bookie-0.pulsar-bookie.pulsar.svc.cluster.local"
+    - "pulsar-bookie-1.pulsar-bookie.pulsar.svc.cluster.local"
+    - "pulsar-bookie-2.pulsar-bookie.pulsar.svc.cluster.local"
+    - "pulsar-bookie-3.pulsar-bookie.pulsar.svc.cluster.local"    
+    - "pulsar-bookie.pulsar.svc"
+    - "pulsar-bookie-0.pulsar-bookie.pulsar.svc" 
+    - "pulsar-bookie-1.pulsar-bookie.pulsar.svc" 
+    - "pulsar-bookie-2.pulsar-bookie.pulsar.svc"
+    - "pulsar-bookie-3.pulsar-bookie.pulsar.svc" 
+  issuerRef:
+    name: "pulsar-ca"
+---
+apiVersion: certmanager.k8s.io/v1alpha1
+kind: Certificate
+metadata:
+  name: "pulsar-recovery"
+spec:
+  secretName: "pulsar-tls-recovery"
+  organization: 
+  - pulsar
+  commonName: "pulsar-recovery"
+  isCA: false
+  usages:
+    - server auth
+    - client auth
+  dnsNames:
+    - "pulsar-recovery.pulsar.svc.cluster.local"
+    - "pulsar-recovery-0.pulsar-recovery.pulsar.svc.cluster.local"   
+    - "pulsar-recovery.pulsar.svc"
+    - "pulsar-recovery-0.pulsar-recovery.pulsar.svc"  
+  issuerRef:
+    name: "pulsar-ca"
+---
+apiVersion: certmanager.k8s.io/v1alpha1
+kind: Certificate
+metadata:
+  name: "pulsar-toolset"
+spec:
+  secretName: "pulsar-tls-toolset"
+  organization: 
+  - pulsar
+  commonName: "pulsar-toolset"
+  isCA: false
+  usages:
+    - server auth
+    - client auth
+  dnsNames:
+    - "pulsar-toolset.pulsar.svc.cluster.local"
+    - "pulsar-toolset-0.pulsar-recovery.pulsar.svc.cluster.local"   
+    - "pulsar-toolset.pulsar.svc"
+    - "pulsar-toolset-0.pulsar-recovery.pulsar.svc"  
+  issuerRef:
+    name: "pulsar-ca"
+---
+apiVersion: certmanager.k8s.io/v1alpha1
+kind: Certificate
+metadata:
+  name: "pulsar-zookeeper"
+spec:
+  secretName: "pulsar-tls-zookeeper"
+  organization: 
+  - pulsar
+  commonName: "pulsar-zookeeper"
+  isCA: false
+  usages:
+    - server auth
+    - client auth
+  dnsNames:
+    - "pulsar-zookeeper.pulsar.svc.cluster.local"
+    - "pulsar-zookeeper-0.pulsar-zookeeper.pulsar.svc.cluster.local"
+    - "pulsar-zookeeper-1.pulsar-zookeeper.pulsar.svc.cluster.local"
+    - "pulsar-zookeeper-2.pulsar-zookeeper.pulsar.svc.cluster.local"    
+    - "pulsar-zookeeper.pulsar.svc"
+    - "pulsar-zookeeper-0.pulsar-zookeeper.pulsar.svc" 
+    - "pulsar-zookeeper-1.pulsar-zookeeper.pulsar.svc" 
+    - "pulsar-zookeeper-2.pulsar-zookeeper.pulsar.svc" 
+  issuerRef:
+    name: "pulsar-ca"
+---
+apiVersion: certmanager.k8s.io/v1alpha1
+kind: Certificate
+metadata:
+  name: "pulsar-ca"
+spec:
+  secretName: "pulsar-ca-tls"
+  organization: 
+  - pulsar
+  commonName: "pulsar-ca"
+  isCA: false
+  usages:
+    - server auth
+  dnsNames: []
+  issuerRef:
+    name: "pulsar-ca"
+---
+apiVersion: certmanager.k8s.io/v1alpha1
+kind: Certificate
+metadata:
+  name: "pulsar-manager"
+spec:
+  secretName: "pulsar-tls-manager"
+  organization: 
+  - pulsar
+  commonName: "pulsar-manager"
+  isCA: false
+  usages:
+    - server auth
+  dnsNames:
+    - "pulsar-pulsar-manager.pulsar.svc.cluster.local"
+    - "pulsar-pulsar-manager.pulsar.svc"
+  issuerRef:
+    name: "pulsar-ca"
+  keystores:  
+    jks:
+      create: true
+      passwordSecretRef:
+        name: pulsar-manager-keystore-secret
+        key: keyStorePassword
+---      
+apiVersion: v1
+kind: Secret
+metadata:
+  name: amq-console-secret
+stringData:
+  keyStorePassword: changeit
+  trustStorePassword: changeit        

@@ -39,3 +39,22 @@ for context in ${cluster1} ${cluster2} ${cluster3}; do
 done
 ```
 
+## test
+
+```shell
+helm repo add podinfo https://stefanprodan.github.io/podinfo
+for context in ${cluster1} ${cluster2} ${cluster3}; do
+  oc --context ${context} new-project k8gb-test
+  helm --kube-context ${context} upgrade --install frontend --namespace k8gb-test --create-namespace -f ./k8gb/test-app/values.yaml --set ui.message="${context}" podinfo/podinfo
+  oc --context ${context} apply -f ./k8gb/test-app/unhealthy-app.yaml -n k8gb-test
+  oc --context ${context} apply -f ./k8gb/test-app/test-k8gb.yaml -n k8gb-test
+done
+```
+
+## Uninstall
+
+```shell
+for context in ${cluster1} ${cluster2} ${cluster3}; do
+  helm --kube-context ${context} uninstall k8gb -n k8gb 
+done
+```

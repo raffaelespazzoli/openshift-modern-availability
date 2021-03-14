@@ -241,7 +241,7 @@ done
 ### Deploy submariner via CLI
 
 ```shell
-curl -Ls https://get.submariner.io | VERSION=0.8.0 bash
+curl -Ls https://get.submariner.io | VERSION=0.8.1 bash
 subctl deploy-broker --kubecontext ${control_cluster} --service-discovery
 mv broker-info.subm /tmp/broker-info.subm
 for context in ${cluster1} ${cluster2} ${cluster3}; do
@@ -310,8 +310,8 @@ This can be useful to quickly troubleshoot issues
 ```shell
 for context in ${cluster1} ${cluster2} ${cluster3}; do
   export OCP_OPS_VIEW_ROUTE=ocp-ops-view.apps.$(oc --context ${context} get dns cluster -o jsonpath='{.spec.baseDomain}')
-  helm --kube-context ${context} upgrade kube-ops-view stable/kube-ops-view -i --create-namespace -n ocp-ops-view --set redis.enabled=true --set rbac.create=true --set ingress.enabled=true --set ingress.hostname=$OCP_OPS_VIEW_ROUTE --set redis.master.port=6379
   oc --context ${context} adm policy add-scc-to-user anyuid -z default -n ocp-ops-view
+  helm --kube-context ${context} upgrade kube-ops-view stable/kube-ops-view -i --create-namespace -n ocp-ops-view --set redis.enabled=true --set rbac.create=true --set ingress.enabled=true --set ingress.hostname=$OCP_OPS_VIEW_ROUTE --set redis.master.port=6379
 done
 ```
 
@@ -330,7 +330,7 @@ if for any reason that does not work, run the following:
 ```shell
 for cluster in cluster1 cluster2 cluster3; do
   mkdir -p ./${cluster}
-  cp ${cluster}-metadata.json ./${cluster}/medatada.json
+  cp ${cluster}-metadata.json ./${cluster}/metadata.json
   openshift-install  destroy cluster --log-level=debug --dir ./${cluster}
 done
 ```

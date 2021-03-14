@@ -1,0 +1,41 @@
+tls:
+  enabled: true
+  # settings for generating certs for proxy
+  proxy:
+    enabled: true
+    cert_name: tls-proxy
+  # settings for generating certs for broker
+  broker:
+    enabled: true
+    cert_name: tls-broker
+  # settings for generating certs for bookies
+  bookie:
+    enabled: true
+    cert_name: tls-bookie
+  # settings for generating certs for zookeeper
+  zookeeper:
+    enabled: true
+    cert_name: tls-zookeeper
+  # settings for generating certs for recovery
+  autorecovery:
+    enabled: true
+    cert_name: tls-recovery
+  # settings for generating certs for toolset
+  toolset:
+    enabled: true
+    cert_name: tls-toolset  
+
+monitoring:
+  # monitoring - prometheus
+  prometheus: true
+  # monitoring - grafana
+  grafana: true
+  # monitoring - node_exporter
+  node_exporter: false
+  # alerting - alert-manager
+  alert_manager: true
+
+rbac:
+  enabled: true
+  psp: true
+  limit_to_namespace: false    

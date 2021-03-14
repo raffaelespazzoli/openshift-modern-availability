@@ -1,0 +1,19 @@
+nats:
+  tls:
+    secret:
+      name: nats-client-tls
+    ca: "ca.crt"
+    cert: "tls.crt"
+    key: "tls.key"
+
+
+cluster:
+  enabled: true
+  replicas: 3
+
+  tls:
+    secret:
+      name: nats-server-tls
+    ca: "ca.crt"
+    cert: "tls.crt"
+    key: "tls.key"
