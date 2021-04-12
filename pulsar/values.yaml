@@ -38,4 +38,11 @@ monitoring:
 rbac:
   enabled: true
   psp: true
-  limit_to_namespace: false    
+  limit_to_namespace: false
+
+certs:
+  internal_issuer:
+    apiVersion: cert-manager.io/v1
+    enabled: true
+    component: internal-cert-issuer
+    type: selfsigning

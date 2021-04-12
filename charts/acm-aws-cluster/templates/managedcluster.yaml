@@ -5,6 +5,8 @@ metadata:
     cloud: Amazon
     name: {{ template "acm-aws-cluster.fullname" . }}
     vendor: OpenShift
+    cluster.open-cluster-management.io/clusterset: gdw
+    cluster.open-cluster-management.io/submariner-agent: "true"
   name: {{ template "acm-aws-cluster.fullname" . }}
 spec:
   hubAcceptsClient: true

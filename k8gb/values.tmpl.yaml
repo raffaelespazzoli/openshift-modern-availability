@@ -6,10 +6,47 @@ k8gb:
   extGslbClustersGeoTags: ${other_regions} # comma-separated list of external gslb geo tags to pair with
   exposeCoreDNS: true # Create Service type LoadBalancer to expose CoreDNS
 
-externaldns:
-  expose53onWorkers: false # open 53/udp on workers nodes with nginx controller
-
 route53:
   enabled: true
   hostedZoneID: ${cluster_zone_id}
   irsaRole: ${iam_role_arn}
+
+externaldns:
+  image: k8s.gcr.io/external-dns/external-dns:v0.7.5
+  interval: "20s"
+  securityContext:
+    fsGroup: ${guid} # For ExternalDNS to be able to read Kubernetes and AWS token files
+    runAsUser: ${uid}
+    runAsNonRoot: true
+
+coredns:
+  isClusterService: false
+  image:
+    repository: absaoss/k8s_crd
+    tag: "v0.0.2"
+  serviceAccount:
+    create: true
+    name: coredns
+  servers:
+  - zones:
+    - zone: .
+    port: 5353
+    plugins:
+    - name: log
+    - name: errors
+    # Serves a /health endpoint on :8080, required for livenessProbe
+    - name: health
+    # Serves a /ready endpoint on :8181, required for readinessProbe
+    - name: ready
+    - name: loadbalance
+      parameters: round_robin
+    # Serves a /metrics endpoint on :9153, required for serviceMonitor
+    - name: prometheus
+      parameters: 0.0.0.0:9153
+    - name: forward
+      parameters: . /etc/resolv.conf
+    - name: k8s_crd
+      parameters: .
+      configBlock: |-
+        resources DNSEndpoint
+        filter k8gb.absa.oss/dnstype=local

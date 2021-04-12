@@ -15,6 +15,7 @@ This step has the following prerequisites:
 oc new-project open-cluster-management
 oc apply -f ./acm/operator.yaml -n open-cluster-management
 oc apply -f ./acm/acm.yaml -n open-cluster-management
+oc apply -f ./acm/clusterset.yaml
 ```
 
 RHACM requires significant resources, check that the RHACM pods are not stuck in `container creating` and nodes if needed.
@@ -65,7 +66,7 @@ watch oc get clusterdeployment --all-namespaces
 
 At this point your architecture should look like the below image:
 
-![RHACM](./media/RHACM.png)
+![RHACM](./media/Submariner2.png)
 
 Collect the cluster metadata. This is useful if something goes wrong and you need to force the deletion of the clusters.
 
@@ -109,6 +110,28 @@ export cluster3=cluster3
 ```
 
 Now the `${cluster1}`,`${cluster2}` and `${cluster3}` variables contain the kube context to be used to connect to the respective clusters.
+
+### verify submariner installation
+
+```shell
+curl -Ls https://get.submariner.io | VERSION=0.8.1 bash
+for context in ${cluster1} ${cluster2} ${cluster3}; do
+  subctl show --kubecontext ${context} all
+done
+```
+
+### Upgrade the node machine to a network optimized machine type
+
+If you need to change the machine type of your submariner node, you can try this approach.
+
+```shell
+for context in ${cluster1} ${cluster2} ${cluster3}; do
+  export gateway_machine_set=$(oc --context ${context} get machineset -n openshift-machine-api | grep submariner | awk '{print $1}')
+  oc --context ${context} scale machineset ${gateway_machine_set} -n openshift-machine-api --replicas=0
+  oc --context ${context} patch MachineSet ${gateway_machine_set} --type='json' -n openshift-machine-api -p='[{"op" : "replace", "path" : "/spec/template/spec/providerSpec/value/instanceType", "value" : "m5n.xlarge"}]'
+  oc --context ${context} scale machineset ${gateway_machine_set} -n openshift-machine-api --replicas=1
+done
+```
 
 ## Deploy global-load-balancer-operator
 
@@ -159,11 +182,7 @@ envsubst < ./global-load-balancer-operator/route53-dns-zone.yaml | oc --context 
 envsubst < ./global-load-balancer-operator/route53-global-route-discovery.yaml | oc --context ${control_cluster} apply -f - -n ${namespace}
 ```
 
-At this point your architecture should look like the below image:
-
-![Global Load Balancer](./media/GLB.png)
-
-## Deploy Submariner
+<!-- ## Deploy Submariner
 
 [Submariner](https://submariner.io/) creates an IPSec-based network tunnel between the managed clusters' SDNs.
 
@@ -199,7 +218,7 @@ done
 ```
 
 
-<!--
+
 ### Deploy submariner via helm chart (do not use, it doesn't work)
 
 ```shell
@@ -236,7 +255,7 @@ for context in ${cluster1} ${cluster2} ${cluster3}; do
   helm template submariner ./charts/submariner --kube-context ${context} --create-namespace -f /tmp/values-sm.yaml -n submariner | oc --context ${context} apply -f - -n submariner
 done
 ```
--->
+
 
 ### Deploy submariner via CLI
 
@@ -256,10 +275,7 @@ for context in ${cluster1} ${cluster2} ${cluster3}; do
   subctl show --kubecontext ${context} all
 done
 ```
-
-At this point your architecture should look like the below image:
-
-![Network Tunnel](./media/Submariner.png)
+-->
 
 <!--
 
@@ -282,6 +298,10 @@ oc config use-context ${control_cluster}
 ```
 
 -->
+
+At this point your architecture should look like the below image:
+
+![Network Tunnel](./media/Submariner.png)
 
 ## Troubleshooting Submariner
 

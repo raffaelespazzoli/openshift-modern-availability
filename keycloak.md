@@ -32,3 +32,15 @@ vault secrets enable -tls-skip-verify database
 vault write -tls-skip-verify database/config/keycloak plugin_name=postgresql-database-plugin allowed_roles="keycloak-role" connection_url="postgresql://{{username}}:{{password}}@cockroachdb-public.cockroachdb.svc.cluster.local:26257/keycloak?sslmode=require" username="dba" password="dba"
 vault write -tls-skip-verify database/roles/keycloak-role db_name=keycloak creation_statements="CREATE ROLE \"{{name}}\" WITH LOGIN PASSWORD '{{password}}' VALID UNTIL '{{expiration}}'; GRANT ALL ON DATABASE keycloak TO \"{{name}}\";" default_ttl="24h" max_ttl="7d"
 ```
+
+
+## keycloak.X
+
+Install openshift pipelines
+
+```shell
+oc apply -f https://raw.githubusercontent.com/tektoncd/catalog/main/task/maven/0.2/maven.yaml
+oc new-project keycloak
+oc apply -f ./keycloak/keycloak-quarkus-pipeline.yaml -n keycloak
+oc apply -f ./keycloak/keycloak-statefulset.yaml -n keycloak
+```

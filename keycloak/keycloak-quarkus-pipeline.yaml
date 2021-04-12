@@ -55,14 +55,14 @@ spec:
       - git-clone
     params:
     - name: MAVEN_IMAGE
-      value: registry.redhat.io/ubi8/openjdk-8
+      value: registry.redhat.io/ubi8/openjdk-11
     - name: GOALS
       value:
         - -DskipTests
         - -DskipTestsuite 
         - -DskipExamples
         - clean
-        - install
+        - package
     workspaces:
     - name: maven-settings
       workspace: maven-settings
@@ -138,7 +138,7 @@ spec:
     - ReadWriteOnce
   resources:
     requests:
-      storage: 5Gi          
+      storage: 10Gi          
 ---
 apiVersion: v1
 kind: ConfigMap

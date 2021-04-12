@@ -1,12 +1,12 @@
 ---
-apiVersion: certmanager.k8s.io/v1alpha1
+apiVersion: cert-manager.io/v1
 kind: Issuer
 metadata:
   name: self-signer
 spec:
   selfSigned: {}
 ---
-apiVersion: certmanager.k8s.io/v1alpha1
+apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
   name: rootca
@@ -17,7 +17,7 @@ spec:
   commonName: "ca.self-signer.cert-manager"
   isCA: true
 ---
-apiVersion: certmanager.k8s.io/v1alpha1
+apiVersion: cert-manager.io/v1
 kind: Issuer
 metadata:
   name: pulsar-ca
@@ -25,7 +25,7 @@ spec:
   ca:
     secretName: rootca
 ---    
-apiVersion: certmanager.k8s.io/v1alpha1
+apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
   name: "pulsar-proxy"
@@ -50,7 +50,7 @@ spec:
   issuerRef:
     name: "pulsar-ca"
 ---
-apiVersion: certmanager.k8s.io/v1alpha1
+apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
   name: "pulsar-broker"
@@ -75,7 +75,7 @@ spec:
   issuerRef:
     name: "pulsar-ca"
 ---
-apiVersion: certmanager.k8s.io/v1alpha1
+apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
   name: "pulsar-pulsar-bookie"
@@ -102,7 +102,7 @@ spec:
   issuerRef:
     name: "pulsar-ca"
 ---
-apiVersion: certmanager.k8s.io/v1alpha1
+apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
   name: "pulsar-recovery"
@@ -123,7 +123,7 @@ spec:
   issuerRef:
     name: "pulsar-ca"
 ---
-apiVersion: certmanager.k8s.io/v1alpha1
+apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
   name: "pulsar-toolset"
@@ -144,7 +144,7 @@ spec:
   issuerRef:
     name: "pulsar-ca"
 ---
-apiVersion: certmanager.k8s.io/v1alpha1
+apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
   name: "pulsar-zookeeper"
@@ -169,7 +169,7 @@ spec:
   issuerRef:
     name: "pulsar-ca"
 ---
-apiVersion: certmanager.k8s.io/v1alpha1
+apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
   name: "pulsar-ca"
@@ -185,7 +185,7 @@ spec:
   issuerRef:
     name: "pulsar-ca"
 ---
-apiVersion: certmanager.k8s.io/v1alpha1
+apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
   name: "pulsar-manager"
@@ -212,7 +212,7 @@ spec:
 apiVersion: v1
 kind: Secret
 metadata:
-  name: amq-console-secret
+  name: pulsar-manager-keystore-secret
 stringData:
   keyStorePassword: changeit
   trustStorePassword: changeit        
