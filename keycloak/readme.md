@@ -13,3 +13,20 @@ oc apply -f ./keycloak/keycloak-quarkus-pipeline.yaml -n ${namespace}
 export base_domain=$(oc get dns cluster -o jsonpath='{.spec.baseDomain}')
 envsubst < ./keycloak/keycloak-statefulset.yaml | oc apply -f - -n ${namespace}
 ```
+
+
+## Create the keycloak.x image
+
+```shell
+docker build -t quay.io/raffaelespazzoli/keycloak.x:12.0.4 .
+docker login quay.io/raffaelespazzoli/keycloak.x
+docker push quay.io/raffaelespazzoli/keycloak.x:12.0.4
+```
+
+### Run keycloak.x image
+
+```shell
+export namespace=keycloak
+export base_domain=$(oc get dns cluster -o jsonpath='{.spec.baseDomain}')
+envsubst < ./keycloak/keycloak-statefulset.yaml | oc apply -f - -n ${namespace}
+```

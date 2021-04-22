@@ -1,0 +1,422 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: keycloak
+spec:
+  selector:
+    matchLabels:
+      app: keycloak
+  serviceName: keycloak
+  template:
+    metadata:
+      labels:
+        app: keycloak
+    spec:
+      containers:
+      - image: quay.io/raffaelespazzoli/keycloak.x:12.0.4
+        imagePullPolicy: Always
+        name: keycloak
+        args:
+        - "start"
+        - "--verbose"
+        ports:
+        - name: https
+          containerPort: 8443
+          protocol: TCP
+        volumeMounts:
+        - mountPath: /certs
+          name: certs
+          readOnly: true
+        - mountPath: /opt/keycloak/keycloak.x-12.0.4/conf
+          name: config
+          readOnly: true
+        env:  
+        - name: KEYCLOAK_ADMIN
+          value: admin 
+        - name: KEYCLOAK_ADMIN_PASSWORD
+          value: admin
+      volumes:
+      - name: config
+        configMap:
+          name: application-properties
+      - name: certs
+        secret:
+          defaultMode: 420
+          secretName: keycloak-tls
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: application-properties
+data:
+  keycloak.properties: |
+    #quarkus.log.level = DEBUG
+    quarkus.log.category."org.jboss.resteasy.resteasy_jaxrs.i18n".level=WARN
+    quarkus.log.category."org.infinispan.transaction.lookup.JBossStandaloneJTAManagerLookup".level=WARN
+
+    quarkus.package.output-name=keycloak
+    quarkus.package.output-directory=lib
+    quarkus.package.user-providers-directory=../providers
+    quarkus.package.main-class=keycloak
+
+    quarkus.http.root-path=/
+    quarkus.application.name=Keycloak
+    quarkus.banner.enabled=false
+
+    spi.hostname.default.frontend-url.enabled=true
+    hostname-frontend-url=https://keycloak-keycloak.apps.tmp-raffa.demo.red-chesterfield.com
+
+    # Disable health checks from extensions, since we provide our own (default is true)
+    quarkus.health.extensions.enabled=false
+
+    # Default transaction timeout
+    quarkus.transaction-manager.default-transaction-timeout=300
+
+    #
+    # The HTTP port
+    #
+    # http.enabled=false
+    https.port=8443
+    # quarkus.http.ssl-port=8443
+
+    # quarkus.http.port=8443
+    quarkus.http.insecure-requests=disabled
+
+    # kc.https.certificate.file=/certs/tls.crt
+    # kc.https.certificate.key=/certs/tls.key
+    # https.certificate.file=/certs/tls.crt
+    # https.certificate.key=/certs/tls.key
+    # quarkus.http.ssl.certificate.file=/certs/tls.crt
+    # quarkus.http.ssl.certificate.key-file=/certs/tls.key
+
+    https.certificate.key-store-password=changeit
+    # https.certificate.key-store-file=/certs/keystore.jks
+    https.certificate.key-store-file=/certs/keystore.p12
+    
+    %dev.http.enabled=true
+    %dev.db.username = sa
+    %dev.db.password = keycloak
+    %dev.cluster=local
+    %dev.db=h2-file
+    
+    #Datasource
+    # quarkus.datasource.db-kind=postgresql
+    # quarkus.datasource.jdbc.url=jdbc:postgresql://postgresql/keycloak
+    # quarkus.datasource.username=raffa
+    # quarkus.datasource.password=raffa
+
+
+
+    db=postgres
+    #db.url.host=postgresql-rw.keycloak.svc
+    db.url=jdbc:postgresql://postgresql-rw/keycloak
+    #db.url.database=keycloak
+    # db.url.properties=?username=raffa&password=raffa
+    #db.username=postgres
+    #db.password=8FfLp92AHUFs7n7dmQri7YpeEOEVEj87DECzzN7sXmCoMLUEiPkNAAdXwl8tRBUG
+    db.username=raffa
+    db.password=raffa
+
+  cluster-local.xml: |
+    <?xml version="1.0" encoding="UTF-8"?>
+    <!--
+      ~ Copyright 2019 Red Hat, Inc. and/or its affiliates
+      ~ and other contributors as indicated by the @author tags.
+      ~
+      ~ Licensed under the Apache License, Version 2.0 (the "License");
+      ~ you may not use this file except in compliance with the License.
+      ~ You may obtain a copy of the License at
+      ~
+      ~ http://www.apache.org/licenses/LICENSE-2.0
+      ~
+      ~ Unless required by applicable law or agreed to in writing, software
+      ~ distributed under the License is distributed on an "AS IS" BASIS,
+      ~ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      ~ See the License for the specific language governing permissions and
+      ~ limitations under the License.
+      -->
+
+    <infinispan
+            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+            xsi:schemaLocation="urn:infinispan:config:11.0 http://www.infinispan.org/schemas/infinispan-config-11.0.xsd"
+            xmlns="urn:infinispan:config:11.0">
+
+        <cache-container name="keycloak">
+            <local-cache name="default">
+                <transaction transaction-manager-lookup="org.infinispan.transaction.lookup.JBossStandaloneJTAManagerLookup"/>
+            </local-cache>
+            <local-cache name="realms">
+                <encoding>
+                    <key media-type="application/x-java-object"/>
+                    <value media-type="application/x-java-object"/>
+                </encoding>
+                <memory storage="HEAP" max-count="10000"/>
+            </local-cache>
+            <local-cache name="users">
+                <encoding>
+                    <key media-type="application/x-java-object"/>
+                    <value media-type="application/x-java-object"/>
+                </encoding>
+                <memory storage="HEAP" max-count="10000"/>
+            </local-cache>
+            <local-cache name="sessions"/>
+            <local-cache name="authenticationSessions"/>
+            <local-cache name="offlineSessions"/>
+            <local-cache name="clientSessions"/>
+            <local-cache name="offlineClientSessions"/>
+            <local-cache name="loginFailures"/>
+            <local-cache name="work"/>
+            <local-cache name="authorization">
+                <encoding>
+                    <key media-type="application/x-java-object"/>
+                    <value media-type="application/x-java-object"/>
+                </encoding>
+                <memory storage="HEAP" max-count="10000"/>
+            </local-cache>
+            <local-cache name="keys">
+                <encoding>
+                    <key media-type="application/x-java-object"/>
+                    <value media-type="application/x-java-object"/>
+                </encoding>
+                <expiration max-idle="3600000"/>
+                <memory storage="HEAP" max-count="10000"/>
+            </local-cache>
+            <local-cache name="actionTokens">
+                <encoding>
+                    <key media-type="application/x-java-object"/>
+                    <value media-type="application/x-java-object"/>
+                </encoding>
+                <expiration max-idle="-1" interval="300000"/>
+                <memory storage="HEAP" max-count="-1"/>
+            </local-cache>
+        </cache-container>
+    </infinispan>
+
+  cluster-default.xml: | 
+    <?xml version="1.0" encoding="UTF-8"?>
+    <!--
+      ~ Copyright 2019 Red Hat, Inc. and/or its affiliates
+      ~ and other contributors as indicated by the @author tags.
+      ~
+      ~ Licensed under the Apache License, Version 2.0 (the "License");
+      ~ you may not use this file except in compliance with the License.
+      ~ You may obtain a copy of the License at
+      ~
+      ~ http://www.apache.org/licenses/LICENSE-2.0
+      ~
+      ~ Unless required by applicable law or agreed to in writing, software
+      ~ distributed under the License is distributed on an "AS IS" BASIS,
+      ~ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      ~ See the License for the specific language governing permissions and
+      ~ limitations under the License.
+      -->
+
+    <infinispan
+            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+            xsi:schemaLocation="urn:infinispan:config:11.0 http://www.infinispan.org/schemas/infinispan-config-11.0.xsd"
+            xmlns="urn:infinispan:config:11.0">
+
+        <cache-container name="keycloak">
+            <transport lock-timeout="60000"/>
+            <local-cache name="realms">
+                <encoding>
+                    <key media-type="application/x-java-object"/>
+                    <value media-type="application/x-java-object"/>
+                </encoding>
+                <memory storage="HEAP" max-count="10000"/>
+            </local-cache>
+            <local-cache name="users">
+                <encoding>
+                    <key media-type="application/x-java-object"/>
+                    <value media-type="application/x-java-object"/>
+                </encoding>
+                <memory storage="HEAP" max-count="10000"/>
+            </local-cache>
+            <distributed-cache name="sessions" owners="1"/>
+            <distributed-cache name="authenticationSessions" owners="1"/>
+            <distributed-cache name="offlineSessions" owners="1"/>
+            <distributed-cache name="clientSessions" owners="1"/>
+            <distributed-cache name="offlineClientSessions" owners="1"/>
+            <distributed-cache name="loginFailures" owners="1"/>
+            <local-cache name="authorization">
+                <encoding>
+                    <key media-type="application/x-java-object"/>
+                    <value media-type="application/x-java-object"/>
+                </encoding>
+                <memory storage="HEAP" max-count="10000"/>
+            </local-cache>
+            <replicated-cache name="work"/>
+            <local-cache name="keys">
+                <encoding>
+                    <key media-type="application/x-java-object"/>
+                    <value media-type="application/x-java-object"/>
+                </encoding>
+                <expiration max-idle="3600000"/>
+                <memory storage="HEAP" max-count="1000"/>
+            </local-cache>
+            <distributed-cache name="actionTokens" owners="2">
+                <encoding>
+                    <key media-type="application/x-java-object"/>
+                    <value media-type="application/x-java-object"/>
+                </encoding>
+                <expiration max-idle="-1" interval="300000"/>
+                <memory storage="HEAP" max-count="-1"/>
+            </distributed-cache>
+        </cache-container>
+    </infinispan>  
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: keycloak
+spec:
+  clusterIP: None
+  ports:
+  # - name: http
+  #   port: 8080
+  #   protocol: TCP
+  #   targetPort: 8080
+  - name: https
+    port: 8443
+    protocol: TCP
+    targetPort: 8443
+  selector:
+    app: keycloak
+  type: ClusterIP
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: keycloak
+  annotations:
+    cert-utils-operator.redhat-cop.io/destinationCA-from-secret: keycloak-tls
+spec:
+  port:
+    targetPort: 8443
+  tls:
+    insecureEdgeTerminationPolicy: Redirect
+    termination: reencrypt
+  to:
+    kind: Service
+    name: keycloak
+    weight: 100
+  wildcardPolicy: None 
+---  
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: keycloak
+spec:
+  # Secret names are always required.
+  secretName: keycloak-tls
+  commonName: keycloak
+  usages:
+    - server auth 
+  dnsNames:
+  - keycloak
+  - keycloak.${namespace}.svc.cluster.local
+  - keycloak.${namespace}.svc
+  - keycloak-${namespace}.apps.${base_domain}
+  duration: 168h
+  renewBefore: 1h
+  issuerRef:
+    name: internal-issuer
+  keystores:
+    jks:
+      create: true
+      passwordSecretRef:
+        name: cert-stores
+        key: password
+    pkcs12:
+      create: true
+      passwordSecretRef:
+        name: cert-stores
+        key: password
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: self-signer
+spec:
+  selfSigned: {}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: rootca
+spec:
+  secretName: rootca
+  issuerRef:
+    name: self-signer
+  commonName: "ca.self-signer.cert-manager"
+  isCA: true
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: internal-issuer
+spec:
+  ca:
+    secretName: rootca 
+--- 
+apiVersion: v1
+kind: Secret
+metadata:
+  name: cert-stores
+type: opaque
+stringData:
+  password: changeit
+---
+apiVersion: postgresql.k8s.enterprisedb.io/v1
+kind: Cluster
+metadata:
+  name: postgresql
+spec:
+  instances: 1
+
+  # Example of rolling update strategy:
+  # - unsupervised: automated update of the primary once all
+  #                 replicas have been upgraded (default)
+  # - supervised: requires manual supervision to perform
+  #               the switchover of the primary
+  primaryUpdateStrategy: unsupervised
+  imageName: 'quay.io/enterprisedb/postgresql:13.2'
+  bootstrap:
+    initdb:
+      database: keycloak
+      owner: raffa
+      secret:
+        name: raffa-user-secret
+
+  # Require 1Gi of space
+  storage:
+    size: 1Gi
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: raffa-user-secret
+type: kubernetes.io/basic-auth
+stringData:
+  password: raffa
+---
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: cloud-native-postgresql
+spec:
+  channel: stable
+  name: cloud-native-postgresql
+  source: certified-operators
+  sourceNamespace: openshift-marketplace
+---  
+apiVersion: operators.coreos.com/v1
+kind: OperatorGroup
+metadata:
+  name: cloud-native-postgresql
+spec: {}
+
+
+  
+  
+    

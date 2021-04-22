@@ -11,3 +11,4 @@ cluster3.log
 yscb_cluster1.log
 yscb_cluster2.log
 yscb_cluster3.log
+./keycloak/tilt_modules/
