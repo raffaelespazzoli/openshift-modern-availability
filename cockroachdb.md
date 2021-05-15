@@ -195,6 +195,13 @@ aws --region ${region} ec2 replace-network-acl-entry --ingress --network-acl-id=
 
 ## Troubleshooting CRDB
 
+Enter a sql shell
+
+```shell
+export tools_pod=$(oc --context cluster1 get pods -n cockroachdb | grep tools | awk '{print $1}')
+oc --context cluster1 exec -ti $tools_pod -c tools -n cockroachdb -- /cockroach/cockroach sql --url postgresql://dba:dba@cockroachdb-public.cockroachdb.svc.cluster.local:26257?sslmode=require
+```
+
 In case of issues, this command can be used to drop the database
 
 ```shell

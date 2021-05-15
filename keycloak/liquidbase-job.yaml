@@ -1,0 +1,48 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: liquidbase-setup
+spec:
+  template:
+    spec:
+      containers:
+      - name: luquidbase
+        image: liquibase/liquibase
+        args:
+        - --changeLogFile=META-INF/jpa-changelog-master.xml
+        - --defaultsFile=/config/liquidbase.properties
+        - update
+        volumeMounts:
+        - mountPath: /certs
+          name: certs
+          readOnly: true
+        - mountPath: /liquibase/changelog/META-INF
+          name: database-change-log
+          readOnly: true
+        - mountPath: /config
+          name: config
+          readOnly: true                  
+      restartPolicy: Never
+      volumes:
+      - name: database-change-log
+        configMap:
+          name: database-change-log
+      - name: config
+        configMap:
+          name: liquidbase-properties          
+      - name: certs
+        secret:
+          defaultMode: 420
+          secretName: keycloak-tls      
+  backoffLimit: 4
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: liquidbase-properties
+data:
+  liquidbase.properties: |  
+    classpath: /liquibase/changelog
+    url: jdbc:postgresql://cockroachdb-public.cockroachdb.svc:26257/keycloak?ssl=true&sslmode=require&sslrootcert=/certs/ca.crt&sslcert=/certs/tls.crt&sslkey=/certs/keystore.p12&sslpassword=changeit
+    username: dba
+    password:dba

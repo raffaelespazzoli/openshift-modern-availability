@@ -1,0 +1,52 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: keycloak
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: keycloak
+  serviceName: keycloak
+  template:
+    metadata:
+      labels:
+        app: keycloak
+    spec:
+      containers:
+      - image: quay.io/raffaelespazzoli/keycloak.x:12.0.4
+        imagePullPolicy: Always
+        name: keycloak
+        args:
+        - "start"
+        - "--verbose"
+        ports:
+        - name: https
+          containerPort: 8443
+          protocol: TCP
+        volumeMounts:
+        - mountPath: /certs
+          name: certs
+          readOnly: true
+        - mountPath: /opt/keycloak/keycloak.x-12.0.4/conf
+          name: config
+          readOnly: true
+        env:  
+        - name: KEYCLOAK_ADMIN
+          value: admin 
+        - name: KEYCLOAK_ADMIN_PASSWORD
+          value: admin
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: CLUSTER_NAME
+          value: {{ .Values.cluster }}                
+      volumes:
+      - name: config
+        configMap:
+          name: application-properties
+      - name: certs
+        secret:
+          defaultMode: 420
+          secretName: keycloak-tls

@@ -8,7 +8,10 @@ global_base_domain: ${global_base_domain}
 
 cockroachdb:
   image:
-    tag: "v20.2.7"
+    #repository: cockroachdb/cockroach
+    #tag: "v20.2.7"
+    repository: cockroachdb/cockroach-unstable
+    tag: "v21.1.0-rc.2"    
   storage:
     persistentVolume:
       storageClass: cockroachdb

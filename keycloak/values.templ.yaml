@@ -1,0 +1,9 @@
+clusterNames:
+  - cluster1
+  - cluster2
+  - cluster3
+
+global_base_domain: ${global_base_domain}
+replicas: 2
+
+cluster: ${cluster}

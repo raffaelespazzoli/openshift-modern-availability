@@ -1,0 +1,22 @@
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: keycloak
+  annotations:
+    cert-utils-operator.redhat-cop.io/certs-from-secret: keycloak-route-tls
+    cert-utils-operator.redhat-cop.io/destinationCA-from-secret: keycloak-tls
+    global-load-balancer-operator.redhat-cop.io/load-balancing-policy: Latency
+  labels:
+    route-type: global    
+spec:
+  host: keycloak.{{ .Values.global_base_domain }}
+  port:
+    targetPort: 8443
+  tls:
+    insecureEdgeTerminationPolicy: Redirect
+    termination: reencrypt
+  to:
+    kind: Service
+    name: keycloak
+    weight: 100
+  wildcardPolicy: None 

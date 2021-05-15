@@ -1,0 +1,72 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: keycloak
+spec:
+  # Secret names are always required.
+  secretName: keycloak-tls
+  commonName: keycloak
+  usages:
+    - server auth 
+  dnsNames:
+{{- $fullname := "keycloak" -}}
+{{- $namespace := .Release.Namespace  -}}
+{{- $replicas := .Values.replicas }}
+{{- range .Values.clusterNames }}
+{{- $cluster:= . }}    
+{{- range until (int $replicas) }}
+  - {{ $fullname }}-{{ . }}.{{ $cluster }}.{{ $fullname }}.{{ $namespace }}.svc.clusterset.local
+{{- end }}
+{{- end }}
+{{- range until (int $replicas) }}
+  - {{ $fullname }}-{{ . }}.{{ $fullname }}.{{ $namespace }}.svc.cluster.local
+  - {{ $fullname }}-{{ . }}.{{ $fullname }}.{{ $namespace }}.svc
+{{- end }}  
+  - keycloak
+  - keycloak.keycloak.svc.cluster.local
+  - keycloak.keycloak.svc
+  duration: 168h
+  renewBefore: 1h
+  issuerRef:
+    name: vault-issuer
+    kind: ClusterIssuer
+    group: cert-manager.io
+  keystores:
+    jks:
+      create: true
+      passwordSecretRef:
+        name: cert-stores
+        key: password
+    pkcs12:
+      create: true
+      passwordSecretRef:
+        name: cert-stores
+        key: password
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: cert-stores
+type: opaque
+stringData:
+  password: changeit
+---  
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: keycloak-route
+spec:
+  # Secret names are always required.
+  secretName: keycloak-route-tls
+  commonName: keycloak
+  usages:
+    - server auth 
+  dnsNames:
+  - keycloak.{{ .Values.global_base_domain }}
+  duration: 168h
+  renewBefore: 1h
+  issuerRef:
+    name: vault-issuer
+    kind: ClusterIssuer
+    group: cert-manager.io
+

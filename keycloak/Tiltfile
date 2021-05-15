@@ -11,5 +11,5 @@ custom_build(
   skips_local_docker=True,
 )
 
-allow_k8s_contexts('keycloak/api-tmp-raffa-demo-red-chesterfield-com:6443/raffa')
+allow_k8s_contexts(['keycloak/api-tmp-raffa-demo-red-chesterfield-com:6443/raffa','keycloak/api-cluster1-acm-aws-cluster-demo-red-chesterfield-com:6443/kube:admin'])
 k8s_yaml(['keycloak.x-statefulset.yaml'])
