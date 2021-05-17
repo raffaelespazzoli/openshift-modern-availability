@@ -174,37 +174,20 @@ data:
             <!-- Defines a custom JGroups stack named "prod". -->
             <stack name="prod">
             <TCP_NIO2 bind_port="7800" port_range="30" recv_buf_size="20000000" send_buf_size="640000"/>
-            <TCPPING 
-                initial_hosts="
-{{- $fullname := "keycloak" -}}
-{{- $namespace := .Release.Namespace  -}}
-{{- $replicas := .Values.replicas }}
-{{- $values := .Values }}
-{{- range .Values.clusterNames }}
-{{- $cluster:= . }}    
-{{- range until (int $replicas) }}
-{{- if and (eq . (sub $replicas 1) )  (eq $cluster (index $values.clusterNames (sub (len $values.clusterNames) 1) )) -}}
-                {{ $fullname }}-{{ . }}.{{ $cluster }}.{{ $fullname }}.{{ $namespace }}.svc.clusterset.local[7800]
-{{- else -}}
-                {{ $fullname }}-{{ . }}.{{ $cluster }}.{{ $fullname }}.{{ $namespace }}.svc.clusterset.local[7800],
-{{- end -}}                                
-{{- end -}}
-{{- end -}}
-                "
-                port_range="0"
-                />            
-            <!-- <MPING break_on_coord_rsp="true"
-                    mcast_addr="${jgroups.mping.mcast_addr:228.2.4.6}"
-                    mcast_port="${jgroups.mping.mcast_port:43366}"
-                    num_discovery_runs="3"
-                    ip_ttl="${jgroups.udp.ip_ttl:2}"/> -->
+            <dns.DNS_PING
+                dns_query="keycloak.keycloak-jgroups.svc.clusterset.local" />            
             <MERGE3 />
             <FD_SOCK />
             <FD_ALL timeout="3000" interval="1000" timeout_check_interval="1000" />
             <VERIFY_SUSPECT timeout="1000" />
-            <!-- <SYM_ENCRYPT keystore_name="/certs/keystore.p12" 
+            <!--<SYM_ENCRYPT keystore_name="/certs/keystore.p12" 
                 keystore_type="PKCS12" 
-                store_password="changeit"/> -->
+                store_password="changeit"
+                alias="1"/>-->
+            <!--<SYM_ENCRYPT keystore_name="/certs/keystore.jks" 
+                keystore_type="JKS" 
+                store_password="changeit"
+                alias="certificate"/>-->                
             <!-- <SSL_KEY_EXCHANGE keystore_name="/certs/keystore.jks"
                         keystore_password="changeit"/>                
             <ASYM_ENCRYPT asym_keylength="2048"
@@ -228,7 +211,7 @@ data:
         <cache-container name="keycloak">
             <transport cluster="keycloak.{{ .Release.Namespace }}"
                 stack="prod"
-                node-name="${env.POD_NAME}.${env.CLUSTER_NAME}.keycloak.{{ .Release.Namespace }}.svc.clusterset.local"
+                node-name="${env.POD_NAME}.${env.CLUSTER_NAME}.keycloak-jgroups.{{ .Release.Namespace }}.svc.clusterset.local"
                 lock-timeout="60000"/>
             <local-cache name="realms">
                 <encoding>

@@ -24,6 +24,9 @@ spec:
         - name: https
           containerPort: 8443
           protocol: TCP
+        - name: jgroups
+          containerPort: 7800
+          protocol: TCP          
         volumeMounts:
         - mountPath: /certs
           name: certs

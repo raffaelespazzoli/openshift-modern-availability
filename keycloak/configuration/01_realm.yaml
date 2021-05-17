@@ -1,0 +1,5 @@
+id: add-realm
+author: raffa
+changes:
+  - addRealm:
+      name: global-openshift

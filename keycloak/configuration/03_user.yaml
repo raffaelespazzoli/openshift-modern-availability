@@ -1,0 +1,18 @@
+id: add-user
+author: raffa
+realm: global-openshift
+changes:
+- addUser:
+    name: raffa
+    enabled: true
+    email: raffa@example.io
+    emailVerified: true
+    attributes:
+      realmRoles:
+        - testRealmRole
+      clientRoles:
+        - client: testClient
+          role: testClientRole
+- updateUserPassword:
+    name: raffa
+    password: "raffa"          

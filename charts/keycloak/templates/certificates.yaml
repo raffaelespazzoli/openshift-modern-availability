@@ -15,12 +15,12 @@ spec:
 {{- range .Values.clusterNames }}
 {{- $cluster:= . }}    
 {{- range until (int $replicas) }}
-  - {{ $fullname }}-{{ . }}.{{ $cluster }}.{{ $fullname }}.{{ $namespace }}.svc.clusterset.local
+  - {{ $fullname }}-{{ . }}.{{ $cluster }}.{{ $fullname }}-jgroups.{{ $namespace }}.svc.clusterset.local
 {{- end }}
 {{- end }}
 {{- range until (int $replicas) }}
-  - {{ $fullname }}-{{ . }}.{{ $fullname }}.{{ $namespace }}.svc.cluster.local
-  - {{ $fullname }}-{{ . }}.{{ $fullname }}.{{ $namespace }}.svc
+  - {{ $fullname }}-{{ . }}.{{ $fullname }}-jgroups.{{ $namespace }}.svc.cluster.local
+  - {{ $fullname }}-{{ . }}.{{ $fullname }}-jgroups.{{ $namespace }}.svc
 {{- end }}  
   - keycloak
   - keycloak.keycloak.svc.cluster.local
