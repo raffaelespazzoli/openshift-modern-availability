@@ -1,3 +1,49 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: keycloak
+spec:
+  selector:
+    matchLabels:
+      app: keycloak
+  serviceName: keycloak
+  template:
+    metadata:
+      labels:
+        app: keycloak
+    spec:
+      containers:
+      - image: quay.io/raffaelespazzoli/keycloak.x:12.0.4
+        imagePullPolicy: Always
+        name: keycloak
+        args:
+        - "start"
+        - "--verbose"
+        ports:
+        - name: https
+          containerPort: 8443
+          protocol: TCP
+        volumeMounts:
+        - mountPath: /certs
+          name: certs
+          readOnly: true
+        - mountPath: /opt/keycloak/conf
+          name: config
+          readOnly: true
+        env:  
+        - name: KEYCLOAK_ADMIN
+          value: admin 
+        - name: KEYCLOAK_ADMIN_PASSWORD
+          value: admin
+      volumes:
+      - name: config
+        configMap:
+          name: application-properties
+      - name: certs
+        secret:
+          defaultMode: 420
+          secretName: keycloak-tls
+---
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -7,32 +53,21 @@ data:
     #quarkus.log.level = DEBUG
     quarkus.log.category."org.jboss.resteasy.resteasy_jaxrs.i18n".level=WARN
     quarkus.log.category."org.infinispan.transaction.lookup.JBossStandaloneJTAManagerLookup".level=WARN
-    quarkus.log.category."io.quarkus.vault".level=DEBUG
-    quarkus.log.category."io.quarkus.agroal".level=DEBUG
-    quarkus.log.category."io.agroal".level=DEBUG
-
-
-
-
+    
     quarkus.package.output-name=keycloak
-    quarkus.package.type=mutable-jar    
     quarkus.package.output-directory=lib
     quarkus.package.user-providers-directory=../providers
     quarkus.package.main-class=keycloak
-
     quarkus.http.root-path=/
     quarkus.application.name=Keycloak
     quarkus.banner.enabled=false
 
     spi.hostname.default.frontend-url.enabled=true
-    hostname-frontend-url=https://keycloak.{{ .Values.global_base_domain }}
-
+    hostname-frontend-url=https://keycloak-keycloak.apps.tmp-raffa.demo.red-chesterfield.com
     # Disable health checks from extensions, since we provide our own (default is true)
     quarkus.health.extensions.enabled=false
-
     # Default transaction timeout
     quarkus.transaction-manager.default-transaction-timeout=300
-
     #
     # The HTTP port
     #
@@ -49,30 +84,15 @@ data:
     %dev.db.password = keycloak
     %dev.cluster=local
     %dev.db=h2-file
+    
+    #Datasource
 
-    #datasource
-    #quarkus.datasource.db-kind = postgresql
-    #quarkus.datasource.jdbc.url = jdbc:postgresql://cockroachdb-public.cockroachdb.svc:26257/keycloak?ssl=true&sslmode=require&sslrootcert=/certs/ca.crt
     db=postgres
-    db.url=jdbc:postgresql://cockroachdb-public.cockroachdb.svc:26257/keycloak?ssl=true&sslmode=require&sslrootcert=/certs/ca.crt
-    #db.url=${quarkus.datasource.jdbc.url}
-    #db.username=dba
-    #db.password=dba
-    quarkus.datasource.credentials-provider=keycloak
-    quarkus.datasource.devservices=false
-    quarkus.hibernate-orm.database.generation=none
-    db.migrationStrategy=validate
 
-    quarkus.liquibase.migrate-at-start=false
+    db.url=jdbc:postgresql://postgresql-rw/keycloak
 
-    #Vault
-    quarkus.vault.credentials-provider.keycloak.database-credentials-role=keycloak-role
-    quarkus.vault.authentication.kubernetes.role=keycloak
-    quarkus.vault.url=https://vault.vault.svc:8200
-    quarkus.vault.authentication.kubernetes.auth-mount-path=auth/kubernetes-{{ .Values.cluster }}
-    quarkus.vault.tls.ca-cert=/vault-certs/ca.crt
-    quarkus.vault.read-timeout=10s
-
+    db.username=raffa
+    db.password=raffa
   cluster-local.xml: |
     <?xml version="1.0" encoding="UTF-8"?>
     <!--
@@ -91,12 +111,10 @@ data:
       ~ See the License for the specific language governing permissions and
       ~ limitations under the License.
       -->
-
     <infinispan
             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
             xsi:schemaLocation="urn:infinispan:config:11.0 http://www.infinispan.org/schemas/infinispan-config-11.0.xsd"
             xmlns="urn:infinispan:config:11.0">
-
         <cache-container name="keycloak">
             <local-cache name="default">
                 <transaction transaction-manager-lookup="org.infinispan.transaction.lookup.JBossStandaloneJTAManagerLookup"/>
@@ -147,7 +165,6 @@ data:
             </local-cache>
         </cache-container>
     </infinispan>
-
   cluster-default.xml: | 
     <?xml version="1.0" encoding="UTF-8"?>
     <!--
@@ -166,56 +183,12 @@ data:
       ~ See the License for the specific language governing permissions and
       ~ limitations under the License.
       -->
-
     <infinispan
             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
             xsi:schemaLocation="urn:infinispan:config:11.0 http://www.infinispan.org/schemas/infinispan-config-11.0.xsd"
             xmlns="urn:infinispan:config:11.0">
-        <jgroups>
-            <!-- Defines a custom JGroups stack named "prod". -->
-            <stack name="prod">
-            <TCP_NIO2 bind_port="7800" port_range="30" recv_buf_size="20000000" send_buf_size="640000"/>
-            <dns.DNS_PING
-                dns_query="keycloak-jgroups.{{ .Release.Namespace }}.svc.clusterset.local" />            
-            <MERGE3 />
-            <FD_SOCK />
-            <FD_ALL timeout="3000" interval="1000" timeout_check_interval="1000" />
-            <VERIFY_SUSPECT timeout="1000" />
-            <!--<SYM_ENCRYPT keystore_name="/certs/keystore.p12" 
-                keystore_type="PKCS12" 
-                store_password="changeit"
-                alias="1"/>-->
-            <!--<SYM_ENCRYPT keystore_name="/certs/keystore.jks" 
-                keystore_type="JKS" 
-                store_password="changeit"
-                alias="certificate"/>-->                
-            <!-- <SSL_KEY_EXCHANGE keystore_name="/certs/keystore.jks"
-                        keystore_password="changeit"/>                
-            <ASYM_ENCRYPT asym_keylength="2048"
-                    asym_algorithm="RSA"
-                    change_key_on_coord_leave = "false"
-                    change_key_on_leave = "false"
-                    use_external_key_exchange = "true"/> -->            
-            <pbcast.NAKACK2 use_mcast_xmit="false" xmit_interval="200"
-                            max_xmit_req_size="500" xmit_table_num_rows="50"
-                            xmit_table_msgs_per_row="1024" xmit_table_max_compaction_time="30000" />
-            <UNICAST3 xmit_interval="200" max_xmit_req_size="500"
-                        xmit_table_num_rows="50" xmit_table_msgs_per_row="1024"
-                        xmit_table_max_compaction_time="30000" />
-            <pbcast.STABLE stability_delay="200" desired_avg_gossip="2000" max_bytes="1M" />
-            <pbcast.GMS print_local_addr="false" join_timeout="${jgroups.join_timeout:2000}" />
-            <UFC max_credits="4m" min_threshold="0.40" />
-            <MFC max_credits="4m" min_threshold="0.40" />
-            <FRAG3 />
-            </stack>
-        </jgroups>
         <cache-container name="keycloak">
-            <transport cluster="keycloak.{{ .Release.Namespace }}"
-                stack="prod"
-                node-name="${env.POD_NAME}.${env.CLUSTER_NAME}.keycloak-jgroups.{{ .Release.Namespace }}.svc.clusterset.local"
-                lock-timeout="60000"
-                machine="${env.NODE_NAME}"
-                site="${env.CLUSTER_NAME}"/>
+            <transport lock-timeout="60000"/>
             <local-cache name="realms">
                 <encoding>
                     <key media-type="application/x-java-object"/>
@@ -261,4 +234,155 @@ data:
                 <memory storage="HEAP" max-count="-1"/>
             </distributed-cache>
         </cache-container>
-    </infinispan> 
+    </infinispan>  
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: keycloak
+spec:
+  clusterIP: None
+  ports:
+  # - name: http
+  #   port: 8080
+  #   protocol: TCP
+  #   targetPort: 8080
+  - name: https
+    port: 8443
+    protocol: TCP
+    targetPort: 8443
+  selector:
+    app: keycloak
+  type: ClusterIP
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: keycloak
+  annotations:
+    cert-utils-operator.redhat-cop.io/destinationCA-from-secret: keycloak-tls
+spec:
+  port:
+    targetPort: 8443
+  tls:
+    insecureEdgeTerminationPolicy: Redirect
+    termination: reencrypt
+  to:
+    kind: Service
+    name: keycloak
+    weight: 100
+  wildcardPolicy: None 
+---  
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: keycloak
+spec:
+  # Secret names are always required.
+  secretName: keycloak-tls
+  commonName: keycloak
+  usages:
+    - server auth 
+  dnsNames:
+  - keycloak
+  - keycloak.${namespace}.svc.cluster.local
+  - keycloak.${namespace}.svc
+  - keycloak-${namespace}.apps.${base_domain}
+  duration: 168h
+  renewBefore: 1h
+  issuerRef:
+    name: internal-issuer
+  keystores:
+    jks:
+      create: true
+      passwordSecretRef:
+        name: cert-stores
+        key: password
+    pkcs12:
+      create: true
+      passwordSecretRef:
+        name: cert-stores
+        key: password
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: self-signer
+spec:
+  selfSigned: {}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: rootca
+spec:
+  secretName: rootca
+  issuerRef:
+    name: self-signer
+  commonName: "ca.self-signer.cert-manager"
+  isCA: true
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: internal-issuer
+spec:
+  ca:
+    secretName: rootca 
+--- 
+apiVersion: v1
+kind: Secret
+metadata:
+  name: cert-stores
+type: opaque
+stringData:
+  password: changeit
+---
+apiVersion: postgresql.k8s.enterprisedb.io/v1
+kind: Cluster
+metadata:
+  name: postgresql
+spec:
+  instances: 1
+
+  # Example of rolling update strategy:
+  # - unsupervised: automated update of the primary once all
+  #                 replicas have been upgraded (default)
+  # - supervised: requires manual supervision to perform
+  #               the switchover of the primary
+  primaryUpdateStrategy: unsupervised
+  imageName: 'quay.io/enterprisedb/postgresql:13.2'
+  bootstrap:
+    initdb:
+      database: keycloak
+      owner: raffa
+      secret:
+        name: raffa-user-secret
+
+  # Require 1Gi of space
+  storage:
+    size: 1Gi
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: raffa-user-secret
+type: kubernetes.io/basic-auth
+stringData:
+  password: raffa
+---
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: cloud-native-postgresql
+spec:
+  channel: stable
+  name: cloud-native-postgresql
+  source: certified-operators
+  sourceNamespace: openshift-marketplace
+---  
+apiVersion: operators.coreos.com/v1
+kind: OperatorGroup
+metadata:
+  name: cloud-native-postgresql
+spec: {}

@@ -7,11 +7,11 @@ spec:
   selector:
     matchLabels:
       app: keycloak
-  serviceName: keycloak
+  serviceName: keycloak-jgroups
   template:
     metadata:
       labels:
-        app: keycloak
+        app: keycloak        
     spec:
       containers:
       - image: quay.io/raffaelespazzoli/keycloak.x:12.0.4
@@ -31,7 +31,10 @@ spec:
         - mountPath: /certs
           name: certs
           readOnly: true
-        - mountPath: /opt/keycloak/keycloak.x-12.0.4/conf
+        - mountPath: /vault-certs
+          name: vault-certs
+          readOnly: true          
+        - mountPath: /opt/keycloak/conf
           name: config
           readOnly: true
         env:  
@@ -44,7 +47,11 @@ spec:
             fieldRef:
               fieldPath: metadata.name
         - name: CLUSTER_NAME
-          value: {{ .Values.cluster }}                
+          value: {{ .Values.cluster }}
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName                          
       volumes:
       - name: config
         configMap:
@@ -53,3 +60,7 @@ spec:
         secret:
           defaultMode: 420
           secretName: keycloak-tls
+      - name: vault-certs
+        secret:
+          defaultMode: 420
+          secretName: vault-ca-tls          

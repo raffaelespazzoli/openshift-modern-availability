@@ -7,3 +7,4 @@ global_base_domain: ${global_base_domain}
 replicas: 2
 
 cluster: ${cluster}
+vault_ca: ${vault_ca}

@@ -51,3 +51,39 @@ spec:
     # This is optional since cert-manager will default to this value however
     # if you are using an external issuer, change this to that issuer group.
     group: cert-manager.io
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: vault-global
+spec:
+  # Secret names are always required.
+  secretName: vault-global-tls
+  commonName: vault
+  usages:
+    - server auth
+    - client auth  
+  dnsNames:
+{{- $replicas:=.Values.vault.server.ha.replicas }}
+{{- $namespace := .Release.Namespace  -}}
+{{- range .Values.clusterNames }}
+{{- $clusterName:= . }}
+{{- range (until ($replicas | int) ) }}
+  - vault-{{ . }}.{{ $clusterName }}.vault-internal.{{ $namespace }}.svc.clusterset.local
+{{- end }}
+{{- end }}
+{{- range (until ($replicas | int) ) }}
+  - vault-{{ . }}.vault-internal.{{ $namespace }}.svc
+  - vault-{{ . }}.vault-internal.{{ $namespace }}.svc.cluster.local
+{{- end }}   
+  - vault
+  - vault.vault.svc
+  - vault.vault.svc.cluster.local
+  issuerRef:
+    name: vault-issuer
+    # We can reference ClusterIssuers by changing the kind here.
+    # The default value is Issuer (i.e. a locally namespaced Issuer)
+    kind: ClusterIssuer
+    # This is optional since cert-manager will default to this value however
+    # if you are using an external issuer, change this to that issuer group.
+    group: cert-manager.io    

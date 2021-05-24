@@ -119,7 +119,7 @@ vault secrets enable -tls-skip-verify pki
 vault secrets tune -tls-skip-verify -max-lease-ttl=87600h pki
 vault write -tls-skip-verify pki/root/generate/internal common_name=cert-manager.cluster.local ttl=87600h
 vault write -tls-skip-verify pki/config/urls issuing_certificates="http://vault.vault.svc:8200/v1/pki/ca" crl_distribution_points="http://vault.vault.svc:8200/v1/pki/crl"
-vault write -tls-skip-verify pki/roles/cert-manager allowed_domains=svc,svc.cluster.local,svc.clusterset.local,node,root,${global_base_domain},yugabyte,keycloak allow_bare_domains=true allow_subdomains=true allow_localhost=false enforce_hostnames=false
+vault write -tls-skip-verify pki/roles/cert-manager allowed_domains=svc,svc.cluster.local,svc.clusterset.local,node,root,${global_base_domain},yugabyte,keycloak,vault allow_bare_domains=true allow_subdomains=true allow_localhost=false enforce_hostnames=false
 vault policy write -tls-skip-verify cert-manager ./vault/cert-manager-policy.hcl
 ```
 

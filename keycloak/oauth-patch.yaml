@@ -1,17 +1,18 @@
-name: global-keycloak 
-mappingMethod: claim 
-type: OpenID
-openID:
-  clientID: ${cluster}
-  ca: 
-    name: ocp-ca-bundle 
-  clientSecret:
-    name: ocp-secret
-  claims: 
-    preferredUsername:
-    - preferred_username
-    name:
-    - name
-    email:
-    - email
-  issuer: https://${keycloak_fqdn}/auth/realms/ocp    
+identityProviders:
+- name: global-keycloak 
+  mappingMethod: claim 
+  type: OpenID
+  openID:
+    clientID: ${cluster}
+    ca: 
+      name: ocp-ca-bundle 
+    clientSecret:
+      name: keycloak-client-secret
+    claims: 
+      preferredUsername:
+      - preferred_username
+      name:
+      - name
+      email:
+      - email
+    issuer: https://${keycloak_fqdn}/realms/global-openshift    

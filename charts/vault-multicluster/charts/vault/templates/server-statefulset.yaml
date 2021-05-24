@@ -57,6 +57,10 @@ spec:
         {{ template "vault.volumes" . }}
         - name: home
           emptyDir: {}
+        - name: global-certs
+          secret:
+            secretName: vault-global-tls
+            optional: false  
       {{- if .Values.server.extraInitContainers }}
       initContainers:
         {{ toYaml .Values.server.extraInitContainers | nindent 8}}
@@ -126,6 +130,8 @@ spec:
           {{ template "vault.mounts" . }}
             - name: home
               mountPath: /home/vault
+            - name: global-certs
+              mountPath: /global-certs  
           ports:
             - containerPort: 8200
               name: {{ include "vault.scheme" . }}
