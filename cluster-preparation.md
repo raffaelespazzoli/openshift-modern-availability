@@ -158,7 +158,6 @@ aws route53 change-resource-record-sets --hosted-zone-id ${cluster_zone_id} --ch
 ```shell
 export namespace=global-load-balancer-operator
 oc --context ${control_cluster} new-project ${namespace}
-oc --context ${control_cluster} apply -f https://raw.githubusercontent.com/kubernetes-sigs/external-dns/master/docs/contributing/crd-source/crd-manifest.yaml
 oc --context ${control_cluster} apply -f ./global-load-balancer-operator/operator.yaml -n ${namespace}
 ```
 
@@ -177,7 +176,6 @@ export cluster3_secret_name=$(oc --context ${control_cluster} get clusterdeploym
 ```
 
 ```shell
-envsubst < ./global-load-balancer-operator/route53-credentials-request.yaml | oc --context ${control_cluster} apply -f - -n ${namespace}
 envsubst < ./global-load-balancer-operator/route53-dns-zone.yaml | oc --context ${control_cluster} apply -f -
 envsubst < ./global-load-balancer-operator/route53-global-route-discovery.yaml | oc --context ${control_cluster} apply -f - -n ${namespace}
 ```

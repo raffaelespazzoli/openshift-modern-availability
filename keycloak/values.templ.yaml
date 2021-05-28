@@ -8,3 +8,9 @@ replicas: 2
 
 cluster: ${cluster}
 vault_ca: ${vault_ca}
+
+image:
+  tag: ${version}
+
+version: ${version}
+version_no_dots: ${version_no_dots}  

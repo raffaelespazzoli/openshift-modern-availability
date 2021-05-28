@@ -8,6 +8,6 @@ spec:
   provider:
     route53:
       zoneID: ${global_zone_id}
-      credentialsSecretRef:
-        name: route53-global-zone-credentials
-        namespace: ${namespace}
+      # credentialsSecretRef:
+      #   name: route53-global-zone-credentials
+      #   namespace: ${namespace}

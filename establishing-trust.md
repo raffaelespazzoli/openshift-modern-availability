@@ -142,6 +142,13 @@ for context in ${cluster1} ${cluster2} ${cluster3}; do
 done  
 ```
 
+```shell
+for context in ${cluster1} ${cluster2} ${cluster3}; do
+  oc --context ${context} scale statefulset vault -n vault --replicas=0
+  oc --context ${context} scale statefulset vault -n vault --replicas=3
+done  
+```
+
 ## Clean up Vault
 
 Use this to clean up vault:

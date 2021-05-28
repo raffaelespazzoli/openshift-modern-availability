@@ -14,7 +14,7 @@ spec:
         app: keycloak        
     spec:
       containers:
-      - image: quay.io/raffaelespazzoli/keycloak.x:12.0.4
+      - image: quay.io/raffaelespazzoli/keycloak.x:{{ .Values.image.tag }}
         imagePullPolicy: Always
         name: keycloak
         args:
@@ -39,9 +39,9 @@ spec:
           readOnly: true
         env:  
         - name: KEYCLOAK_ADMIN
-          value: admin 
+          value: raffa 
         - name: KEYCLOAK_ADMIN_PASSWORD
-          value: admin
+          value: raffa
         - name: POD_NAME
           valueFrom:
             fieldRef:

@@ -60,7 +60,7 @@ spec:
         - name: global-certs
           secret:
             secretName: vault-global-tls
-            optional: false  
+            optional: true  
       {{- if .Values.server.extraInitContainers }}
       initContainers:
         {{ toYaml .Values.server.extraInitContainers | nindent 8}}
