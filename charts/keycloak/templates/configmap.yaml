@@ -15,7 +15,7 @@ data:
 
 
     quarkus.package.output-name=keycloak
-    quarkus.package.type=mutable-jar    
+    quarkus.package.type=fast-jar
     quarkus.package.output-directory=lib
     quarkus.package.user-providers-directory=../providers
     quarkus.package.main-class=keycloak
@@ -53,16 +53,20 @@ data:
     #datasource
     #quarkus.datasource.db-kind = postgresql
     #quarkus.datasource.jdbc.url = jdbc:postgresql://cockroachdb-public.cockroachdb.svc:26257/keycloak{{ .Values.version_no_dots }}?ssl=true&sslmode=require&sslrootcert=/certs/ca.crt
+    #quarkus.datasource.jdbc.url = jdbc:postgresql://cockroachdb-public.cockroachdb.svc:26257/keycloak?ssl=true&sslmode=require&sslrootcert=/certs/ca.crt
     db=postgres
-    db.url=jdbc:postgresql://cockroachdb-public.cockroachdb.svc:26257/keycloak{{ .Values.version_no_dots }}?ssl=true&sslmode=require&sslrootcert=/certs/ca.crt
+    #db.url=jdbc:postgresql://cockroachdb-public.cockroachdb.svc:26257/keycloak{{ .Values.version_no_dots }}?ssl=true&sslmode=require&sslrootcert=/certs/ca.crt
+    db.url=jdbc:postgresql://cockroachdb-public.cockroachdb.svc:26257/keycloak?ssl=true&sslmode=require&sslrootcert=/certs/ca.crt
     db.username=dba
     db.password=dba
     #quarkus.datasource.credentials-provider=keycloak-{{ .Values.version }}
+    #quarkus.datasource.credentials-provider=keycloak
     #quarkus.datasource.devservices=false
 
 
     #Vault
-    quarkus.vault.credentials-provider.keycloak.database-credentials-role=keycloak-role-{{ .Values.version }}
+    #quarkus.vault.credentials-provider.keycloak.database-credentials-role=keycloak-role-{{ .Values.version }}
+    quarkus.vault.credentials-provider.keycloak.database-credentials-role=keycloak-role
     quarkus.vault.authentication.kubernetes.role=keycloak
     quarkus.vault.url=https://vault.vault.svc:8200
     quarkus.vault.authentication.kubernetes.auth-mount-path=auth/kubernetes-{{ .Values.cluster }}

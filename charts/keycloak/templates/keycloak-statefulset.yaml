@@ -39,9 +39,9 @@ spec:
           readOnly: true
         env:  
         - name: KEYCLOAK_ADMIN
-          value: raffa 
+          value: admin 
         - name: KEYCLOAK_ADMIN_PASSWORD
-          value: raffa
+          value: admin
         - name: POD_NAME
           valueFrom:
             fieldRef:

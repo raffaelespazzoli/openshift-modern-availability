@@ -9,8 +9,8 @@ export tools_pod=$(oc --context ${cluster1} get pods -n cockroachdb | grep tools
 oc --context ${cluster1} rsync -n cockroachdb ./keycloak $tools_pod:/tmp/
 oc --context ${cluster1} exec $tools_pod -c tools -n cockroachdb -- /cockroach/cockroach sql --execute='DROP DATABASE IF EXISTS keycloak CASCADE;' --certs-dir=/crdb-certs --host cockroachdb-0.cluster1.cockroachdb.cockroachdb.svc.clusterset.local
 oc --context ${cluster1} exec $tools_pod -c tools -n cockroachdb -- /cockroach/cockroach sql --execute='CREATE DATABASE IF NOT EXISTS keycloak;' --certs-dir=/crdb-certs --host cockroachdb-0.cluster1.cockroachdb.cockroachdb.svc.clusterset.local
-export dump_location=$(oc --context ${cluster1} exec $tools_pod -c tools -n cockroachdb -- cockroach nodelocal upload /tmp/keycloak/keycloak-12.0.4.sql /tmp/keycloak/keycloak-12.0.4.sql --certs-dir=/crdb-certs --host cockroachdb-0.cluster1.cockroachdb.cockroachdb.svc.clusterset.local | awk '{ print $NF }' )
-oc --context ${cluster1} exec $tools_pod -c tools -n cockroachdb -- /cockroach/cockroach sql --execute="IMPORT PGDUMP "'"${dump_location}"'" WITH ignore_unsupported_statements;" --certs-dir=/crdb-certs --host cockroachdb-0.cluster1.cockroachdb.cockroachdb.svc.clusterset.local -d keycloak
+export dump_location=$(oc --context ${cluster1} exec $tools_pod -c tools -n cockroachdb -- cockroach nodelocal upload /tmp/keycloak/keycloak-13.0.0.sql /tmp/keycloak/keycloak-13.0.0.sql --certs-dir=/crdb-certs --host cockroachdb-0.cluster1.cockroachdb.cockroachdb.svc.clusterset.local | awk '{ print $NF }' )
+oc --context ${cluster1} exec $tools_pod -c tools -n cockroachdb -- /cockroach/cockroach sql --execute='IMPORT PGDUMP "'""${dump_location}""'" WITH ignore_unsupported_statements;' --certs-dir=/crdb-certs --host cockroachdb-0.cluster1.cockroachdb.cockroachdb.svc.clusterset.local -d keycloak
 ```
 
 ## Preparing Vault to manage account for the keycloak database
@@ -128,13 +128,9 @@ for context in ${cluster1} ${cluster2} ${cluster3}; do
 done
 ```
 
-
-
-
+<!--
 
 ## Troubleshooting issue with vault
-
-
 
 needed because the version of liquidbase used by keycloak is not compatible with cockroachdb
 
@@ -192,3 +188,4 @@ for context in ${cluster1} ${cluster2} ${cluster3}; do
   helm --kube-context ${context} upgrade keycloak ./charts/keycloak -i --create-namespace -n keycloak -f /tmp/values.yaml
 done
 ```
+-->

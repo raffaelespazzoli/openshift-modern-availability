@@ -1,3 +1,3 @@
-path "database/creds/keycloak-role-${version}" {
+path "database/creds/keycloak-role" {
   capabilities = [ "read" ]
 }

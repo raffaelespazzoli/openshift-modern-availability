@@ -1867,10 +1867,12 @@ COPY public.composite_role (composite, child_role) FROM stdin;
 
 --
 -- Data for Name: credential; Type: TABLE DATA; Schema: public; Owner: dba
+-- original value 
+-- c6d8cc34-28e7-4bc6-8e84-41855515d9c5	\N	password	9e60a853-0467-432d-af86-25dd3eb2f227	1621763827662	\N	{"value":"1gpGkFLpeiGmD9loZZByNjnFCm57JA6ex9L/smEPnw15NmD3GICexf3aFJmDcQ7NYrn0X32CItRVNVb1nQyxFw==","salt":"Kr07TZMv5O0XELEFDQCuVQ==","additionalParameters":{}}	{"hashIterations":100000,"algorithm":"pbkdf2-sha256","additionalParameters":{}}	10
 --
 
 COPY public.credential (id, salt, type, user_id, created_date, user_label, secret_data, credential_data, priority) FROM stdin;
-c6d8cc34-28e7-4bc6-8e84-41855515d9c5	\N	password	9e60a853-0467-432d-af86-25dd3eb2f227	1621763827662	\N	{"value":"1gpGkFLpeiGmD9loZZByNjnFCm57JA6ex9L/smEPnw15NmD3GICexf3aFJmDcQ7NYrn0X32CItRVNVb1nQyxFw==","salt":"Kr07TZMv5O0XELEFDQCuVQ==","additionalParameters":{}}	{"hashIterations":100000,"algorithm":"pbkdf2-sha256","additionalParameters":{}}	10
+c6d8cc34-28e7-4bc6-8e84-41855515d9c5	\N	password	9e60a853-0467-432d-af86-25dd3eb2f227	1621763827662	\N	{"value":"0eUmSm/1N6iiE/QFGURZn2zgtPxOD0sh5zPBB4taDT+XJcG7BTcr+IsVfTkEOGlkMfWftVeA11ZXmFoCGn0sXA==","salt":"krBXzBh5PJPrv9ZLDpK+mA==","additionalParameters":{}}	{"hashIterations":27500,"algorithm":"pbkdf2-sha256","additionalParameters":{}}	10
 \.
 
 
