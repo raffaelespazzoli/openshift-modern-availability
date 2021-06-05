@@ -1,0 +1,54 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: kafka
+spec:
+  # Secret names are always required.
+  secretName: kafka-tls
+  commonName: node
+  usages:
+    - server auth
+    - client auth  
+  dnsNames:
+{{- $namespace := .Release.Namespace  -}}
+{{- $replicas:= .Values.zookeeper.replicas -}}
+{{- range .Values.clusterNames }}
+{{- $cluster:= . }}    
+{{- range until (int $replicas) }}
+    - kafka-{{ . }}.{{ $cluster }}.kafka.{{ $namespace }}.svc.clusterset.local
+{{- end }}
+{{- end }}
+{{- range until (int $replicas) }}
+    - kafka-{{ . }}.kafka.{{ $namespace }}.svc.cluster.local
+{{- end }}
+    - kafka.{{ $namespace }}.svc.clusterset.local
+    - kafka.{{ $namespace }}.svc.cluster.local 
+  duration: 168h
+  renewBefore: 1h
+  issuerRef:
+    name: vault-issuer
+    # We can reference ClusterIssuers by changing the kind here.
+    # The default value is Issuer (i.e. a locally namespaced Issuer)
+    kind: ClusterIssuer
+    # This is optional since cert-manager will default to this value however
+    # if you are using an external issuer, change this to that issuer group.
+    group: cert-manager.io
+  keystores:
+    jks:
+      create: true
+      passwordSecretRef:
+        name: kafka-cert-stores
+        key: password
+    pkcs12:
+      create: true
+      passwordSecretRef:
+        name: kafka-cert-stores
+        key: password
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: kafka-cert-stores
+type: opaque
+stringData:
+  password: changeit

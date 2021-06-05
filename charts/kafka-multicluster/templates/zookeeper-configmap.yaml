@@ -1,0 +1,53 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: zookeeper-config
+data:
+  log4j.properties: |
+    # Do not change this generated file. Logging can be configured in the corresponding Kubernetes resource.
+    log4j.appender.CONSOLE=org.apache.log4j.ConsoleAppender
+    log4j.appender.CONSOLE.layout=org.apache.log4j.PatternLayout
+    log4j.appender.CONSOLE.layout.ConversionPattern=%d{ISO8601} %p %m (%c) [%t]%n
+    zookeeper.root.logger=INFO
+    log4j.rootLogger=${zookeeper.root.logger}, CONSOLE
+  zoo.cfg: |
+    tickTime=2000
+    dataDir=/data
+    dataLogDir/datalog
+    secureClientPort=2181
+    initLimit=5
+    syncLimit=2
+{{- $namespace := .Release.Namespace  -}}
+{{- $replicas:= .Values.zookeeper.replicas -}}
+{{- $id:=1 -}}
+{{- range .Values.clusterNames }}
+{{- $cluster:= . }}    
+{{- range until (int $replicas) }}
+    server.{{ $id }}=zookeeper-{{ . }}.{{ $cluster }}.zookeeper.{{ $namespace }}.svc.clusterset.local:2888:3888
+{{- $id = add $id 1 -}}
+{{- end }}
+{{- end }}
+
+    ## node TLS
+    sslQuorum=true 
+    serverCnxnFactory=org.apache.zookeeper.server.NettyServerCnxnFactory 
+    ssl.quorum.keyStore.location=/certs/keystore.jks 
+    ssl.quorum.keyStore.password=changeit 
+    ssl.quorum.trustStore.location=/certs/truststore.jks 
+    ssl.quorum.trustStore.password=changeit
+    ssl.quorum.keyStore.type=JKS
+    ssl.quorum.trustStore.type=JKS
+    leader.closeSocketAsync=true
+    learner.closeSocketAsync=true
+    ssl.quorum.hostnameVerification=false
+
+    ## client TLS
+    ssl.keyStore.location=/certs/keystore.jks 
+    ssl.keyStore.password=changeit 
+    ssl.trustStore.location=/certs/truststore.jks 
+    ssl.trustStore.password=changeit
+    ssl.keyStore.type=JKS
+    ssl.trustStore.type=JKS
+    ssl.hostnameVerification=false
+    
+    

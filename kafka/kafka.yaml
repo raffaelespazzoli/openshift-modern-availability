@@ -1,0 +1,423 @@
+
+- apiVersion: v1
+  kind: Service
+  metadata:
+    labels:
+      app.kubernetes.io/instance: my-cluster
+      app.kubernetes.io/managed-by: strimzi-cluster-operator
+      app.kubernetes.io/name: kafka
+      app.kubernetes.io/part-of: strimzi-my-cluster
+      strimzi.io/cluster: my-cluster
+      strimzi.io/discovery: "true"
+      strimzi.io/kind: Kafka
+      strimzi.io/name: my-cluster-kafka
+    name: my-cluster-kafka-bootstrap
+    namespace: stream-test
+  spec:
+    ports:
+    - name: tcp-replication
+      port: 9091
+      protocol: TCP
+      targetPort: 9091
+    - name: tcp-clients
+      port: 9092
+      protocol: TCP
+      targetPort: 9092
+    - name: tcp-clientstls
+      port: 9093
+      protocol: TCP
+      targetPort: 9093
+    selector:
+      strimzi.io/cluster: my-cluster
+      strimzi.io/kind: Kafka
+      strimzi.io/name: my-cluster-kafka
+    sessionAffinity: None
+    type: ClusterIP
+- apiVersion: v1
+  kind: Service
+  metadata:
+    annotations:
+      service.alpha.kubernetes.io/tolerate-unready-endpoints: "true"
+    labels:
+      app.kubernetes.io/instance: my-cluster
+      app.kubernetes.io/managed-by: strimzi-cluster-operator
+      app.kubernetes.io/name: kafka
+      app.kubernetes.io/part-of: strimzi-my-cluster
+      strimzi.io/cluster: my-cluster
+      strimzi.io/kind: Kafka
+      strimzi.io/name: my-cluster-kafka
+    name: my-cluster-kafka-brokers
+    namespace: stream-test
+  spec:
+    clusterIP: None
+    ports:
+    - name: tcp-replication
+      port: 9091
+      protocol: TCP
+      targetPort: 9091
+    - name: tcp-clients
+      port: 9092
+      protocol: TCP
+      targetPort: 9092
+    - name: tcp-clientstls
+      port: 9093
+      protocol: TCP
+      targetPort: 9093
+    publishNotReadyAddresses: true
+    selector:
+      strimzi.io/cluster: my-cluster
+      strimzi.io/kind: Kafka
+      strimzi.io/name: my-cluster-kafka
+    sessionAffinity: None
+    type: ClusterIP
+- apiVersion: v1
+  kind: Service
+  metadata:
+    labels:
+      app.kubernetes.io/instance: my-cluster
+      app.kubernetes.io/managed-by: strimzi-cluster-operator
+      app.kubernetes.io/name: zookeeper
+      app.kubernetes.io/part-of: strimzi-my-cluster
+      strimzi.io/cluster: my-cluster
+      strimzi.io/kind: Kafka
+      strimzi.io/name: my-cluster-zookeeper-client
+    name: my-cluster-zookeeper-client
+    namespace: stream-test
+  spec:
+    ports:
+    - name: tcp-clients
+      port: 2181
+      protocol: TCP
+      targetPort: 2181
+    selector:
+      strimzi.io/cluster: my-cluster
+      strimzi.io/kind: Kafka
+      strimzi.io/name: my-cluster-zookeeper
+    sessionAffinity: None
+    type: ClusterIP
+- apiVersion: v1
+  kind: Service
+  metadata:
+    annotations:
+      service.alpha.kubernetes.io/tolerate-unready-endpoints: "true"
+    labels:
+      app.kubernetes.io/instance: my-cluster
+      app.kubernetes.io/managed-by: strimzi-cluster-operator
+      app.kubernetes.io/name: zookeeper
+      app.kubernetes.io/part-of: strimzi-my-cluster
+      strimzi.io/cluster: my-cluster
+      strimzi.io/kind: Kafka
+      strimzi.io/name: my-cluster-zookeeper
+    name: my-cluster-zookeeper-nodes
+    namespace: stream-test
+  spec:
+    clusterIP: None
+    clusterIPs:
+    - None
+    ports:
+    - name: tcp-clients
+      port: 2181
+      protocol: TCP
+      targetPort: 2181
+    - name: tcp-clustering
+      port: 2888
+      protocol: TCP
+      targetPort: 2888
+    - name: tcp-election
+      port: 3888
+      protocol: TCP
+      targetPort: 3888
+    publishNotReadyAddresses: true
+    selector:
+      strimzi.io/cluster: my-cluster
+      strimzi.io/kind: Kafka
+      strimzi.io/name: my-cluster-zookeeper
+    sessionAffinity: None
+    type: ClusterIP
+- apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    generation: 1
+    labels:
+      app.kubernetes.io/instance: my-cluster
+      app.kubernetes.io/managed-by: strimzi-cluster-operator
+      app.kubernetes.io/name: entity-operator
+      app.kubernetes.io/part-of: strimzi-my-cluster
+      strimzi.io/cluster: my-cluster
+      strimzi.io/kind: Kafka
+      strimzi.io/name: my-cluster-entity-operator
+- apiVersion: apps/v1
+  kind: StatefulSet
+  metadata:
+    annotations:
+      strimzi.io/kafka-version: 2.7.0
+      strimzi.io/storage: '{"type":"ephemeral"}'
+    labels:
+      app.kubernetes.io/instance: my-cluster
+      app.kubernetes.io/managed-by: strimzi-cluster-operator
+      app.kubernetes.io/name: kafka
+      app.kubernetes.io/part-of: strimzi-my-cluster
+      strimzi.io/cluster: my-cluster
+      strimzi.io/kind: Kafka
+      strimzi.io/name: my-cluster-kafka
+    name: my-cluster-kafka
+    namespace: stream-test
+  spec:
+    podManagementPolicy: Parallel
+    replicas: 3
+    revisionHistoryLimit: 10
+    selector:
+      matchLabels:
+        strimzi.io/cluster: my-cluster
+        strimzi.io/kind: Kafka
+        strimzi.io/name: my-cluster-kafka
+    serviceName: my-cluster-kafka-brokers
+    template:
+      metadata:
+        annotations:
+          strimzi.io/broker-configuration-hash: 6bc63a121179dd7acdc3396c9ffefb596b3ffd9bb9c2de34aeb07d941e025ec2187cdc51c510198e
+          strimzi.io/clients-ca-cert-generation: "0"
+          strimzi.io/cluster-ca-cert-generation: "0"
+          strimzi.io/generation: "0"
+          strimzi.io/inter-broker-protocol-version: "2.7"
+          strimzi.io/kafka-version: 2.7.0
+          strimzi.io/log-message-format-version: "2.7"
+          strimzi.io/logging-appenders-hash: e893ac9f32f7958042d1c82477e3484b0f8ebad5
+          strimzi.io/storage: '{"type":"ephemeral"}'
+        creationTimestamp: null
+        labels:
+          app.kubernetes.io/instance: my-cluster
+          app.kubernetes.io/managed-by: strimzi-cluster-operator
+          app.kubernetes.io/name: kafka
+          app.kubernetes.io/part-of: strimzi-my-cluster
+          strimzi.io/cluster: my-cluster
+          strimzi.io/kind: Kafka
+          strimzi.io/name: my-cluster-kafka
+        name: my-cluster-kafka
+      spec:
+        affinity: {}
+        containers:
+        - command:
+          - /opt/kafka/kafka_run.sh
+          env:
+          - name: KAFKA_METRICS_ENABLED
+            value: "false"
+          - name: STRIMZI_KAFKA_GC_LOG_ENABLED
+            value: "false"
+          - name: KAFKA_HEAP_OPTS
+            value: -Xms128M
+          image: registry.redhat.io/amq7/amq-streams-kafka-27-rhel7@sha256:0a19abd560694c780713175bfc1d66400ae2e9864a7ca210abc7284de5234bea
+          imagePullPolicy: IfNotPresent
+          livenessProbe:
+            exec:
+              command:
+              - /opt/kafka/kafka_liveness.sh
+            failureThreshold: 3
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 5
+          name: kafka
+          ports:
+          - containerPort: 9091
+            name: tcp-replication
+            protocol: TCP
+          - containerPort: 9092
+            name: tcp-clients
+            protocol: TCP
+          - containerPort: 9093
+            name: tcp-clientstls
+            protocol: TCP
+          readinessProbe:
+            exec:
+              command:
+              - test
+              - -f
+              - /var/opt/kafka/kafka-ready
+            failureThreshold: 3
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 5
+          resources: {}
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+          - mountPath: /var/lib/kafka/data
+            name: data
+          - mountPath: /tmp
+            name: strimzi-tmp
+          - mountPath: /opt/kafka/cluster-ca-certs
+            name: cluster-ca
+          - mountPath: /opt/kafka/broker-certs
+            name: broker-certs
+          - mountPath: /opt/kafka/client-ca-certs
+            name: client-ca-cert
+          - mountPath: /opt/kafka/custom-config/
+            name: kafka-metrics-and-logging
+          - mountPath: /var/opt/kafka
+            name: ready-files
+        dnsPolicy: ClusterFirst
+        restartPolicy: Always
+        schedulerName: default-scheduler
+        securityContext: {}
+        serviceAccount: my-cluster-kafka
+        serviceAccountName: my-cluster-kafka
+        terminationGracePeriodSeconds: 30
+        volumes:
+        - emptyDir: {}
+          name: data
+        - emptyDir:
+            medium: Memory
+          name: strimzi-tmp
+        - name: cluster-ca
+          secret:
+            defaultMode: 288
+            secretName: my-cluster-cluster-ca-cert
+        - name: broker-certs
+          secret:
+            defaultMode: 288
+            secretName: my-cluster-kafka-brokers
+        - name: client-ca-cert
+          secret:
+            defaultMode: 288
+            secretName: my-cluster-clients-ca-cert
+        - configMap:
+            defaultMode: 420
+            name: my-cluster-kafka-config
+          name: kafka-metrics-and-logging
+        - emptyDir:
+            medium: Memory
+          name: ready-files
+    updateStrategy:
+      type: OnDelete
+- apiVersion: apps/v1
+  kind: StatefulSet
+  metadata:
+    labels:
+      app.kubernetes.io/instance: my-cluster
+      app.kubernetes.io/managed-by: strimzi-cluster-operator
+      app.kubernetes.io/name: zookeeper
+      app.kubernetes.io/part-of: strimzi-my-cluster
+      strimzi.io/cluster: my-cluster
+      strimzi.io/kind: Kafka
+      strimzi.io/name: my-cluster-zookeeper
+    name: my-cluster-zookeeper
+    namespace: stream-test
+  spec:
+    podManagementPolicy: Parallel
+    replicas: 3
+    revisionHistoryLimit: 10
+    selector:
+      matchLabels:
+        strimzi.io/cluster: my-cluster
+        strimzi.io/kind: Kafka
+        strimzi.io/name: my-cluster-zookeeper
+    serviceName: my-cluster-zookeeper-nodes
+    template:
+      metadata:
+        annotations:
+          strimzi.io/cluster-ca-cert-generation: "0"
+          strimzi.io/generation: "0"
+          strimzi.io/logging-hash: 0f057cb0003c78f02978b83e4fabad5bd508680c
+        creationTimestamp: null
+        labels:
+          app.kubernetes.io/instance: my-cluster
+          app.kubernetes.io/managed-by: strimzi-cluster-operator
+          app.kubernetes.io/name: zookeeper
+          app.kubernetes.io/part-of: strimzi-my-cluster
+          strimzi.io/cluster: my-cluster
+          strimzi.io/kind: Kafka
+          strimzi.io/name: my-cluster-zookeeper
+        name: my-cluster-zookeeper
+      spec:
+        containers:
+        - command:
+          - /opt/kafka/zookeeper_run.sh
+          env:
+          - name: ZOOKEEPER_METRICS_ENABLED
+            value: "false"
+          - name: ZOOKEEPER_SNAPSHOT_CHECK_ENABLED
+            value: "true"
+          - name: STRIMZI_KAFKA_GC_LOG_ENABLED
+            value: "false"
+          - name: KAFKA_HEAP_OPTS
+            value: -Xms128M
+          - name: ZOOKEEPER_CONFIGURATION
+            value: |
+              tickTime=2000
+              initLimit=5
+              syncLimit=2
+              autopurge.purgeInterval=1
+          image: registry.redhat.io/amq7/amq-streams-kafka-27-rhel7@sha256:0a19abd560694c780713175bfc1d66400ae2e9864a7ca210abc7284de5234bea
+          imagePullPolicy: IfNotPresent
+          livenessProbe:
+            exec:
+              command:
+              - /opt/kafka/zookeeper_healthcheck.sh
+            failureThreshold: 3
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 5
+          name: zookeeper
+          ports:
+          - containerPort: 2888
+            name: tcp-clustering
+            protocol: TCP
+          - containerPort: 3888
+            name: tcp-election
+            protocol: TCP
+          - containerPort: 2181
+            name: tcp-clients
+            protocol: TCP
+          readinessProbe:
+            exec:
+              command:
+              - /opt/kafka/zookeeper_healthcheck.sh
+            failureThreshold: 3
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 5
+          resources: {}
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+          - mountPath: /tmp
+            name: strimzi-tmp
+          - mountPath: /var/lib/zookeeper
+            name: data
+          - mountPath: /opt/kafka/custom-config/
+            name: zookeeper-metrics-and-logging
+          - mountPath: /opt/kafka/zookeeper-node-certs/
+            name: zookeeper-nodes
+          - mountPath: /opt/kafka/cluster-ca-certs/
+            name: cluster-ca-certs
+        dnsPolicy: ClusterFirst
+        restartPolicy: Always
+        schedulerName: default-scheduler
+        securityContext: {}
+        serviceAccount: my-cluster-zookeeper
+        serviceAccountName: my-cluster-zookeeper
+        terminationGracePeriodSeconds: 30
+        volumes:
+        - emptyDir: {}
+          name: data
+        - emptyDir:
+            medium: Memory
+          name: strimzi-tmp
+        - configMap:
+            defaultMode: 420
+            name: my-cluster-zookeeper-config
+          name: zookeeper-metrics-and-logging
+        - name: zookeeper-nodes
+          secret:
+            defaultMode: 288
+            secretName: my-cluster-zookeeper-nodes
+        - name: cluster-ca-certs
+          secret:
+            defaultMode: 288
+            secretName: my-cluster-cluster-ca-cert
+    updateStrategy:
+      type: OnDelete

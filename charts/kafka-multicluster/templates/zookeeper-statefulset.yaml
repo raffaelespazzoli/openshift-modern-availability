@@ -1,0 +1,94 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: zookeeper
+spec:
+  podManagementPolicy: Parallel
+  replicas: {{ .Values.zookeeper.replicas }}
+  selector:
+    matchLabels:
+      app: zookeeper
+  serviceName: zookeeper
+  template:
+    metadata:
+      labels:
+        app: zookeeper
+    spec:
+      containers:
+      - command:
+        - /bin/bash
+        - -ecx
+        - | 
+          export CLUSTER_NUMBER=$(echo $CLUSTER_ID | sed -r -e 's/^[^0-9]+//g')
+          export CLUSTER_PREVIOUS=$(( ${CLUSTER_NUMBER} - 1 ))
+
+          export POD_NUMBER=$(echo $POD_NAME | sed -r -e 's/^[^0-9]+//g')
+          export POD_NEXT=$(( ${POD_NUMBER} + 1 ))
+
+          export ZOOID=$(( ${CLUSTER_PREVIOUS} * ${REPLICAS} + ${POD_NEXT} ))
+          echo ${ZOOID} > "$ZOO_DATA_DIR/myid" 
+
+          /docker-entrypoint.sh zkServer.sh start-foreground
+        env: 
+        - name: CLUSTER_ID
+          value: {{ .Values.cluster }}
+        - name: REPLICAS
+          value: "{{ .Values.zookeeper.replicas }}"
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name  
+        image: zookeeper
+        imagePullPolicy: IfNotPresent
+        name: zookeeper
+        ports:
+        - containerPort: 2888
+          name: tcp-clustering
+          protocol: TCP
+        - containerPort: 3888
+          name: tcp-election
+          protocol: TCP
+        - containerPort: 2181
+          name: tcp-clients
+          protocol: TCP
+        - containerPort: 8080
+          name: admin
+          protocol: TCP
+        volumeMounts:
+        - mountPath: /datalog
+          name: datalog
+        - mountPath: /data
+          name: data
+        - mountPath: /conf
+          name: config
+        - mountPath: /certs
+          name: certs
+        - mountPath: /logs
+          name: logs
+      restartPolicy: Always
+      volumes:
+      - emptyDir: {}
+        name: logs
+      - configMap:
+          name: zookeeper-config
+        name: config
+      - name: certs
+        secret:
+          secretName: zookeeper-tls
+  updateStrategy:
+    type: OnDelete
+  volumeClaimTemplates:
+  - metadata:
+      name: datalog
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 2Gi    
+  - metadata:
+      name: data
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 5Gi           
