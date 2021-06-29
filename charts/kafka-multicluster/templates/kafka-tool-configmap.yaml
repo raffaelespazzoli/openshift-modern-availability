@@ -1,0 +1,42 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kafka-tool-config
+data:
+  admin-client.properties: |
+    bootstrap.servers=kafka.kafka.svc.cluster.local:9093
+    security.protocol=SSL
+    ssl.keystore.location=/certs/keystore.jks
+    ssl.keystore.password=changeit
+    ssl.keystore.type=JKS
+    ssl.truststore.location=/certs/truststore.jks
+    ssl.truststore.password=changeit
+    ssl.truststore.type=JKS
+  consumer.properties: |
+    bootstrap.servers=kafka.kafka.svc.cluster.local:9093
+    security.protocol=SSL
+    ssl.keystore.location=/certs/keystore.jks
+    ssl.keystore.password=changeit
+    ssl.keystore.type=JKS
+    ssl.truststore.location=/certs/truststore.jks
+    ssl.truststore.password=changeit
+    ssl.truststore.type=JKS
+
+    group.id=test-consumer
+    client.rack={{ .Values.cluster }}
+
+  producer.properties: |
+    bootstrap.servers=kafka.kafka.svc.cluster.local:9093
+    security.protocol=SSL
+    ssl.keystore.location=/certs/keystore.jks
+    ssl.keystore.password=changeit
+    ssl.keystore.type=JKS
+    ssl.truststore.location=/certs/truststore.jks
+    ssl.truststore.password=changeit
+    ssl.truststore.type=JKS
+
+    acks=all
+    enable.idempotence=true
+    compression.type=lz4
+    # partitioner.class=org.apache.kafka.clients.producer.UniformStickyPartitioner
+    batch.size=32768

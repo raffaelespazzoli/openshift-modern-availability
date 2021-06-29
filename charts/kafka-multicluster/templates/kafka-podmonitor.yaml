@@ -1,0 +1,15 @@
+
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: kafka
+spec:
+  selector:
+    matchLabels:
+      app: kafka
+  podMetricsEndpoints:
+  - targetPort: 9080
+    path: /metrics 
+  namespaceSelector:
+    matchNames:
+    - {{ .Release.Namespace }}

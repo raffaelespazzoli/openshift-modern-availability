@@ -3,10 +3,12 @@ configuration: |
     connections:
       kafka-cluster:
         properties:
-          bootstrap.servers: "kafka.kafka.svc.cluster.local:9093"
+          bootstrap.servers: "kafka-0.${cluster}.kafka.kafka.svc.clusterset.local:9093,kafka-1.${cluster}.kafka.kafka.svc.clusterset.local:9093,kafka-2.${cluster}.kafka.kafka.svc.clusterset.local:9093"
           security.protocol: SSL
+          ssl.truststore.type: JKS
           ssl.truststore.location: /certs/truststore.jks
           ssl.truststore.password: changeit
+          ssl.endpoint.identification.algorithm: ""
 
 extraVolumes:
 - name: certs

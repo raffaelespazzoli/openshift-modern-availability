@@ -176,6 +176,12 @@ export cluster3_secret_name=$(oc --context ${control_cluster} get clusterdeploym
 ```
 
 ```shell
+export namespace=global-load-balancer-operator
+export cluster_base_domain=$(oc --context ${control_cluster} get dns cluster -o jsonpath='{.spec.baseDomain}')
+export cluster_zone_id=$(oc --context ${control_cluster} get dns cluster -o jsonpath='{.spec.publicZone.id}')
+export global_base_domain=global.${cluster_base_domain#*.}
+export global_zone_res=$(aws route53 list-hosted-zones-by-name --dns-name ${global_base_domain} | jq -r .HostedZones[0].Id )
+export global_zone_id=${global_zone_res##*/}
 envsubst < ./global-load-balancer-operator/route53-dns-zone.yaml | oc --context ${control_cluster} apply -f -
 envsubst < ./global-load-balancer-operator/route53-global-route-discovery.yaml | oc --context ${control_cluster} apply -f - -n ${namespace}
 ```

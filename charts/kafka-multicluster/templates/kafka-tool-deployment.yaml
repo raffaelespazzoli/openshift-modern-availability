@@ -1,0 +1,34 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kafka-tool
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kafka-tool
+  template:
+    metadata:
+      labels:
+        app: kafka-tool
+    spec:
+      containers:
+      - imagePullPolicy: Always                                          
+        image: {{ .Values.kafka.image.name }}:{{ .Values.kafka.image.tag }}
+        command:
+        - /bin/bash
+        - -ecx
+        - sleep infinity
+        name: tool
+        volumeMounts:
+        - mountPath: /certs
+          name: certs     
+        - mountPath: /config
+          name: config                 
+      volumes:
+      - name: certs
+        secret:
+          secretName: kafka-tls
+      - name: config
+        configMap:
+          name: kafka-tool-config          

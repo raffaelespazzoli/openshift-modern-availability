@@ -11,7 +11,7 @@ spec:
     - client auth  
   dnsNames:
 {{- $namespace := .Release.Namespace  -}}
-{{- $replicas:= .Values.zookeeper.replicas -}}
+{{- $replicas:= .Values.kafka.replicas -}}
 {{- range .Values.clusterNames }}
 {{- $cluster:= . }}    
 {{- range until (int $replicas) }}

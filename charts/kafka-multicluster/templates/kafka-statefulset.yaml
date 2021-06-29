@@ -14,27 +14,86 @@ spec:
       labels:
         app: kafka
     spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: workload
+                operator: In
+                values:
+                - kafka
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - kafka
+              topologyKey: topology.kubernetes.io/zone
+      tolerations:
+      - key: "workload"
+        operator: "Equal"
+        value: "kafka"
+        effect: "NoSchedule"     
       containers:
+      - name: jmx-exporter
+        image: bitnami/jmx-exporter:0.15.0
+        command:
+        - "java"
+        - -Djava.util.logging.config.file=/config/logging.properties
+        - "-jar" 
+        - "jmx_prometheus_httpserver.jar"
+        args:
+        - "8080"
+        - /config/kafka-0.8.2.yaml
+        volumeMounts:
+        - mountPath: /config
+          name: config        
+        ports:
+        - containerPort: 8080
+          name: metrics
+          protocol: TCP 
       - env:
-        - name: KAFKA_MOUNTED_CONF_DIR
-          value: /config
+        # - name: KAFKA_MOUNTED_CONF_DIR
+        #   value: /tmp/config
         - name: KAFKA_CFG_LISTENERS
           value: BROKER://:9091,CONTROLLER://:9092,CLIENT://:9093
         - name: KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP
           value: BROKER:SSL,CONTROLLER:SSL,CLIENT:SSL
         - name: KAFKA_ZOOKEEPER_PROTOCOL
-          value: SSL    
+          value: SSL
+        - name: KAFKA_HEAP_OPTS
+          value: "-Xmx16G -Xms16G" 
+        - name: JMX_PORT
+          value: "9080"  
+        - name: KAFKA_LOG4J_OPTS
+          value: "-Dlog4j.configuration=file:/config/log4j.properties"   
         - name: POD_NAME
           valueFrom:
             fieldRef:
-              fieldPath: metadata.name                                       
-        image: bitnami/kafka
+              fieldPath: metadata.name
+        resources:
+          requests:
+            memory: "20Gi"
+            cpu: "3"
+          limits:
+            memory: "20Gi"
+        imagePullPolicy: Always                                          
+        image: {{ .Values.kafka.image.name }}:{{ .Values.kafka.image.tag }}
         command:
         - /bin/bash
         - -ecx
-        - | 
-          export KAFKA_CFG_ADVERTISED_LISTENERS=BROKER://${POD_NAME}.{{ .Values.cluster }}.kafka.{{ .Release.Namespace }}.svc.clusterset.local:9091,CONTROLLER://${POD_NAME}.{{ .Values.cluster }}.kafka.{{ .Release.Namespace }}.svc.clusterset.local:9092,CLIENT://${POD_NAME}.{{ .Values.cluster }}.kafka.{{ .Release.Namespace }}.svc.clusterset.local:9093
-          /opt/bitnami/scripts/kafka/entrypoint.sh /opt/bitnami/scripts/kafka/run.sh
+        - |
+          mkdir -p /bitnami/kafka/config
+          cp -L /config/server.properties /config/log4j.properties /bitnami/kafka/config
+          echo advertised.listeners=BROKER://${POD_NAME}.{{ .Values.cluster }}.kafka.{{ .Release.Namespace }}.svc.clusterset.local:9091,CONTROLLER://${POD_NAME}.{{ .Values.cluster }}.kafka.{{ .Release.Namespace }}.svc.clusterset.local:9092,CLIENT://${POD_NAME}.{{ .Values.cluster }}.kafka.{{ .Release.Namespace }}.svc.clusterset.local:9093 >> /bitnami/kafka/config/server.properties
+          export  KAFKA_CFG_ADVERTISED_LISTENERS=BROKER://${POD_NAME}.{{ .Values.cluster }}.kafka.{{ .Release.Namespace }}.svc.clusterset.local:9091,CONTROLLER://${POD_NAME}.{{ .Values.cluster }}.kafka.{{ .Release.Namespace }}.svc.clusterset.local:9092,CLIENT://${POD_NAME}.{{ .Values.cluster }}.kafka.{{ .Release.Namespace }}.svc.clusterset.local:9093
+          #/opt/bitnami/scripts/kafka/entrypoint.sh /opt/bitnami/scripts/kafka/run.sh
+          /opt/bitnami/kafka/bin/kafka-server-start.sh /bitnami/kafka/config/server.properties
         name: kafka
         ports:
         - containerPort: 9091
@@ -45,15 +104,21 @@ spec:
           protocol: TCP
         - containerPort: 9093
           name: client-tls
-          protocol: TCP
+          protocol: TCP         
         volumeMounts:
-        - mountPath: /bitnami/kafka
-          name: data
+        - mountPath: /data1
+          name: data1
+        - mountPath: /data2
+          name: data2
+        - mountPath: /data3
+          name: data3                    
         - mountPath: /config
           name: config
+        # - mountPath: /bitnami/kafka/config
+        #   name: config          
         - mountPath: /certs
           name: certs
-        - mountPath: /config/certs
+        - mountPath: /bitnami/kafka/config/certs
           name: projected-certs          
       volumes:
       - name: certs
@@ -78,9 +143,26 @@ spec:
     type: OnDelete
   volumeClaimTemplates:
   - metadata:
-      name: data
+      name: data1
     spec:
       accessModes: [ "ReadWriteOnce" ]
+      storageClassName: "local-sc"
       resources:
         requests:
-          storage: 10Gi     
+          storage: 1844Gi
+  - metadata:
+      name: data2
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      storageClassName: "local-sc"
+      resources:
+        requests:
+          storage: 1844Gi
+  - metadata:
+      name: data3
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      storageClassName: "local-sc"
+      resources:
+        requests:
+          storage: 1844Gi                         

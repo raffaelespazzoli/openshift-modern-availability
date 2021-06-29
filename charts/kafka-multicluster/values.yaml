@@ -4,3 +4,9 @@
 
 zookeeper:
   replicas: 2
+
+kafka:
+  replicas: 3
+  image:
+    name: bitnami/kafka
+    tag: "2.8.0" 

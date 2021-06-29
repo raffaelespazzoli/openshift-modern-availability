@@ -1,0 +1,32 @@
+run #1
+
+50000000 records sent, 13547.815117 records/sec (3.31 MB/sec), 9172.89 ms avg latency, 45266.00 ms max latency, 4746 ms 50th, 29342 ms 95th, 35270 ms 99th, 43376 ms 99.9th.
+
+run #2
+
+consistent/idempotent producer acks=all
+5318 records sent, 1056.6 records/sec (1.03 MB/sec), 35530.7 ms avg latency, 115256.0 ms max latency.
+
+run #3 
+sticky partitioner and lsz compression
+
+212362 records sent, 41705.0 records/sec (40.73 MB/sec), 8573.2 ms avg latency, 17817.0 ms max latency.
+
+
+run #4 
+dedicated vm
+3 local disks
+xfs
+
+5000000 records sent, 23637.309129 records/sec (23.08 MB/sec), 18830.00 ms avg latency, 31425.00 ms max latency, 22946 ms 50th, 29304 ms 95th, 30267 ms 99th, 31116 ms 99.9th.
+
+
+run #5
+batch.size=32768
+5000000 records sent, 47858.797404 records/sec (46.74 MB/sec), 10316.81 ms avg latency, 16334.00 ms max latency, 11189 ms 50th, 15373 ms 95th, 15854 ms 99th, 16237 ms 99.9th.
+
+run #6
+defaylt partitioner
+5000000 records sent, 45667.105071 records/sec (44.60 MB/sec), 10524.37 ms avg latency, 18437.00 ms max latency, 11475 ms 50th, 16987 ms 95th, 17874 ms 99th, 18189 ms 99.9th.
+
+

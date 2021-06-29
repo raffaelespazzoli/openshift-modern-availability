@@ -29,7 +29,8 @@ data:
     # see kafka.server.KafkaConfig for additional details and defaults
 
     # the id of the broker
-    brokerid=0
+    broker.id.generation.enable=true
+    #brokerid=0
 
     # hostname of broker. If not set, will pick up from the value returned
     # from getLocalHost.  If there are multiple interfaces getLocalHost
@@ -40,10 +41,16 @@ data:
     port=9092
 
     # the number of processor threads the socket server uses. Defaults to the number of cores on the machine
-    num.threads=8
+    num.threads=4
+
+    # The number of threads handling network requests
+    num.network.threads=4
+    
+    # The number of threads doing disk I/O
+    num.io.threads=8
 
     # the directory in which to store log files
-    log.dir=/tmp/kafka-logs
+    log.dirs=/data1/logs,/data2/logs,/data3/logs
 
     # the send buffer used by the socket server 
     socket.send.buffer=1048576
@@ -73,6 +80,7 @@ data:
     # server. e.g. "127.0.0.1:3000,127.0.0.1:3001,127.0.0.1:3002"
     zookeeper.connect=zookeeper-client.kafka.svc.clusterset.local:2181
     zookeeper.ssl.client.enable=true
+    zookeeper.clientCnxnSocket=org.apache.zookeeper.ClientCnxnSocketNetty
 
     # timeout in ms for connecting to zookeeper
     zk.connectiontimeout.ms=1000000
@@ -93,13 +101,16 @@ data:
     listener.security.protocol.map=BROKER:SSL,CONTROLLER:SSL,CLIENT:SSL
     control.plane.listener.name=CONTROLLER
     inter.broker.listener.name=BROKER
-    broker.rack={{ .Values.cluster }} 
+    listener.name.broker.ssl.client.auth=required
+    listener.name.controller.ssl.client.auth=required
+    broker.rack={{ .Values.cluster }}
+    ssl.endpoint.identification.algorithm=HTTPS
 
 
     default.replication.factor=3
-    num.partitions=100
+    num.partitions=9
 
-
+    #ssl.client.auth=required
     ssl.keystore.location=/certs/keystore.jks
     ssl.keystore.password=changeit
     ssl.keystore.type=JKS
@@ -112,4 +123,103 @@ data:
     zookeeper.ssl.truststore.location=/certs/truststore.jks
     zookeeper.ssl.truststore.password=changeit
     zookeeper.ssl.truststore.type=JKS
+
+  kafka-0.8.2.yaml: |
+    startDelaySeconds: 10
+    hostPort: 127.0.0.1:9080
+    ssl: false 
+    lowercaseOutputName: true
+    rules:
+    - pattern : kafka.cluster<type=(.+), name=(.+), topic=(.+), partition=(.+)><>Value
+      name: kafka_cluster_$1_$2
+      labels:
+        topic: "$3"
+        partition: "$4"
+    - pattern : kafka.log<type=Log, name=(.+), topic=(.+), partition=(.+)><>Value
+      name: kafka_log_$1
+      labels:
+        topic: "$2"
+        partition: "$3"
+    - pattern : kafka.controller<type=(.+), name=(.+)><>(Count|Value)
+      name: kafka_controller_$1_$2
+    - pattern : kafka.network<type=(.+), name=(.+)><>Value
+      name: kafka_network_$1_$2
+    - pattern : kafka.network<type=(.+), name=(.+)PerSec, request=(.+)><>Count
+      name: kafka_network_$1_$2_total
+      labels:
+        request: "$3"
+    - pattern : kafka.network<type=(.+), name=(\w+), networkProcessor=(.+)><>Count
+      name: kafka_network_$1_$2
+      labels:
+        request: "$3"
+      type: COUNTER
+    - pattern : kafka.network<type=(.+), name=(\w+), request=(\w+)><>Count
+      name: kafka_network_$1_$2
+      labels:
+        request: "$3"
+    - pattern : kafka.network<type=(.+), name=(\w+)><>Count
+      name: kafka_network_$1_$2
+    - pattern : kafka.server<type=(.+), name=(.+)PerSec\w*, topic=(.+)><>Count
+      name: kafka_server_$1_$2_total
+      labels:
+        topic: "$3"
+    - pattern : kafka.server<type=(.+), name=(.+)PerSec\w*><>Count
+      name: kafka_server_$1_$2_total
+      type: COUNTER
+
+    - pattern : kafka.server<type=(.+), name=(.+), clientId=(.+), topic=(.+), partition=(.*)><>(Count|Value)
+      name: kafka_server_$1_$2
+      labels:
+        clientId: "$3"
+        topic: "$4"
+        partition: "$5"
+    - pattern : kafka.server<type=(.+), name=(.+), topic=(.+), partition=(.*)><>(Count|Value)
+      name: kafka_server_$1_$2
+      labels:
+        topic: "$3"
+        partition: "$4"
+    - pattern : kafka.server<type=(.+), name=(.+), topic=(.+)><>(Count|Value)
+      name: kafka_server_$1_$2
+      labels:
+        topic: "$3"
+      type: COUNTER
+
+    - pattern : kafka.server<type=(.+), name=(.+), clientId=(.+), brokerHost=(.+), brokerPort=(.+)><>(Count|Value)
+      name: kafka_server_$1_$2
+      labels:
+        clientId: "$3"
+        broker: "$4:$5"
+    - pattern : kafka.server<type=(.+), name=(.+), clientId=(.+)><>(Count|Value)
+      name: kafka_server_$1_$2
+      labels:
+        clientId: "$3"
+    - pattern : kafka.server<type=(.+), name=(.+)><>(Count|Value)
+      name: kafka_server_$1_$2
+
+    - pattern : kafka.(\w+)<type=(.+), name=(.+)PerSec\w*><>Count
+      name: kafka_$1_$2_$3_total
+    - pattern : kafka.(\w+)<type=(.+), name=(.+)PerSec\w*, topic=(.+)><>Count
+      name: kafka_$1_$2_$3_total
+      labels:
+        topic: "$4"
+      type: COUNTER
+    - pattern : kafka.(\w+)<type=(.+), name=(.+)PerSec\w*, topic=(.+), partition=(.+)><>Count
+      name: kafka_$1_$2_$3_total
+      labels:
+        topic: "$4"
+        partition: "$5"
+      type: COUNTER
+    - pattern : kafka.(\w+)<type=(.+), name=(.+)><>(Count|Value)
+      name: kafka_$1_$2_$3_$4
+      type: COUNTER
+    - pattern : kafka.(\w+)<type=(.+), name=(.+), (\w+)=(.+)><>(Count|Value)
+      name: kafka_$1_$2_$3_$6
+      labels:
+        "$4": "$5"
+  logging.properties: |
+    handlers=java.util.logging.ConsoleHandler
+    java.util.logging.ConsoleHandler.level=ALL
+    io.prometheus.jmx.level=ALL
+    io.prometheus.jmx.shaded.io.prometheus.jmx.level=ALL  
+
 

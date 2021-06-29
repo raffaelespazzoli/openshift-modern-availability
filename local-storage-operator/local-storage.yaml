@@ -1,0 +1,26 @@
+apiVersion: "local.storage.openshift.io/v1"
+kind: "LocalVolume"
+metadata:
+  name: "local-disks"
+  namespace: "openshift-local-storage" 
+spec:
+  tolerations:
+  - key: workload 
+    operator: Equal 
+    value: "kafka"
+    effect: "NoSchedule"
+  nodeSelector: 
+    nodeSelectorTerms:
+    - matchExpressions:
+        - key: workload
+          operator: In
+          values:
+          - kafka
+  storageClassDevices:
+    - storageClassName: "local-sc" 
+      volumeMode: Filesystem 
+      fsType: xfs 
+      devicePaths: 
+        - /dev/nvme1n1
+        - /dev/nvme2n1
+        - /dev/nvme3n1

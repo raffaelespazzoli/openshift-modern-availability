@@ -16,7 +16,7 @@ vault:
     enabled: true
   server:
     image: 
-      tag: 1.7.1
+      tag: 1.7.3
     multicluster:
       enabled: true
       cluster: ${cluster}

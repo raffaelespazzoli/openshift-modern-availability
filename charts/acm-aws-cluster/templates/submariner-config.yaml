@@ -6,4 +6,4 @@ spec:
   credentialsSecret:
      name: {{ template "acm-aws-cluster.fullname" . }}-aws-credentials
   subscriptionConfig:
-    startingCSV: submariner.v0.8     
+    startingCSV: submariner.v0.8.1    
