@@ -40,3 +40,14 @@ data:
     compression.type=lz4
     # partitioner.class=org.apache.kafka.clients.producer.UniformStickyPartitioner
     batch.size=32768
+    linger.ms=50
+
+    # the send buffer used by the socket server 
+    #socket.send.buffer.bytes=1048576
+
+    # using bandwidth-delay approach (https://en.wikipedia.org/wiki/Bandwidth-delay_product): 
+    # 250MBps (as measured by subctl benchmark throughtput) and 70ms -> 250 * 10^6 b/s * 7 *10^-3 s = 1750*10^3 =~ 1.5MB 
+    send.buffer.bytes=1572864
+    # the receive buffer used by the socket server
+    #socket.receive.buffer=1048576
+    receive.buffer.bytes=1572864

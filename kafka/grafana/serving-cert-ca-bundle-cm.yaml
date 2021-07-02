@@ -1,0 +1,6 @@
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: serving-certs-ca-bundle
+  annotations:
+    service.alpha.openshift.io/inject-cabundle: 'true'

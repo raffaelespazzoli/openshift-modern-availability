@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kafka-exporter
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kafka-exporter
+  template:
+    metadata:
+      labels:
+        app: kafka-exporter
+    spec:
+      containers:
+      - imagePullPolicy: Always                                          
+        image: danielqsj/kafka-exporter
+        args:
+        - --kafka.server=kafka.kafka.svc.cluster.local:9093
+        - --tls.enabled
+        - --tls.ca-file=/certs/ca.crt
+        name: kafka-exporter
+        ports:
+        - containerPort: 9308
+          name: metrics
+          protocol: TCP
+        volumeMounts:
+        - mountPath: /certs
+          name: certs                    
+      volumes:
+      - name: certs
+        secret:
+          secretName: kafka-tls   

@@ -55,6 +55,23 @@ for context in ${cluster1} ${cluster2} ${cluster3}; do
 done
 ```
 
+Enable monitoring
+
+```shell
+for context in ${cluster1} ${cluster2} ${cluster3}; do
+  oc --context ${context} apply -f ./kafka/user-workload-monitoring.yaml
+  oc --context ${context} apply -f ./kafka/grafana/operator.yaml -n kafka
+done
+```
+
+```shell
+for context in ${cluster1} ${cluster2} ${cluster3}; do
+  oc --context ${context} apply -f ./kafka/grafana/grafana.yaml,./kafka/grafana/grafana-dashboard-kafka.yaml,./kafka/grafana/secret-grafana-k8s-proxy.yaml,./kafka/grafana/serving-cert-ca-bundle-cm.yaml,./kafka/grafana/configmap-trusted-ca-bundle.yaml -n kafka
+  export BEARER_TOKEN=$(oc --context ${context} serviceaccounts get-token prometheus-user-workload -n openshift-user-workload-monitoring)
+  envsubst < ./kafka/grafana/datasource.yaml | oc --context ${context} apply -f - -n kafka
+done
+```
+
 ## Run a performance test
 
 https://gist.github.com/jkreps/c7ddb4041ef62a900e6c
@@ -66,6 +83,8 @@ export tool_pod=$(oc --context cluster1 get pod -n kafka | grep tool | awk '{pri
 oc --context cluster1 exec -n kafka ${tool_pod} -- /opt/bitnami/kafka/bin/kafka-topics.sh --bootstrap-server kafka.kafka.svc.cluster.local:9093 --delete --topic test-topic --if-exists --command-config /config/admin-client.properties
 oc --context cluster1 exec -n kafka ${tool_pod} -- /opt/bitnami/kafka/bin/kafka-topics.sh --bootstrap-server kafka.kafka.svc.cluster.local:9093 --create --topic test-topic --partitions 9 --replication-factor=3 --if-not-exists --command-config /config/admin-client.properties --config retention.ms=28800000 --config min.insync.replicas=2
 ```
+
+### Single producer/consumer runs
 
 start producer
 
@@ -81,15 +100,17 @@ export tool_pod=$(oc --context cluster1 get pod -n kafka | grep tool | awk '{pri
 oc --context cluster1 exec -n kafka ${tool_pod} -- /opt/bitnami/kafka/bin/kafka-consumer-perf-test.sh --bootstrap-server kafka.kafka.svc.cluster.local:9093 --consumer.config /config/consumer.properties --topic test-topic --messages 1000
 ```
 
-improvements: 
+### Multiple producer/consumer runs
 
-1. dedicated machine x
-2. local volume x
-3. xfs x
-4. vertical pod autoscaler
-5. pod disruption budget x
-6. anti affinity x
-
+```shell
+export producer_number=6
+export record_number=5000000
+export record_size=1024
+for context in ${cluster1} ${cluster2} ${cluster3}; do
+  oc --context ${context} delete job kafka-producer -n kafka
+  envsubst < ./kafka/producer-job.yaml | oc --context ${context} apply -f - -n kafka
+done
+```
 
 ## Troubleshoot
 
@@ -129,3 +150,21 @@ for context in ${cluster1} ${cluster2} ${cluster3}; do
   oc --context ${context} delete pvc --all -n kafka
 done
 ```
+
+
+Plan
+run test with new config. 
+
+additional optimization
+noatime, largeio in mounting the volume
+
+no sense in trying to push performance more.
+
+Test consumer
+
+Test producer and consumer together
+
+Run and disaster 
+
+Write the article.
+

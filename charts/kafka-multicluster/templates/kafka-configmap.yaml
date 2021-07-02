@@ -48,15 +48,22 @@ data:
     
     # The number of threads doing disk I/O
     num.io.threads=8
+    num.replica.fetchers=4
+    num.recovery.threads.per.data.dir=4
 
     # the directory in which to store log files
     log.dirs=/data1/logs,/data2/logs,/data3/logs
 
     # the send buffer used by the socket server 
-    socket.send.buffer=1048576
+    #socket.send.buffer.bytes=1048576
 
+    # using bandwidth-delay approach (https://en.wikipedia.org/wiki/Bandwidth-delay_product): 
+    # 250MBps (as measured by subctl benchmark throughtput) and 70ms -> 250 * 10^6 b/s * 7 *10^-3 s = 1750*10^3 =~ 1.5MB 
+    socket.send.buffer.bytes=1572864
     # the receive buffer used by the socket server
-    socket.receive.buffer=1048576
+    #socket.receive.buffer=1048576
+    socket.receive.buffer.bytes=1572864
+
 
     # the maximum size of a log segment
     log.file.size=536870912

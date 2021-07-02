@@ -1,0 +1,45 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: kafka-producer
+spec:
+  parallelism: ${producer_number}
+  template:
+    metadata:
+      label:
+        app: kafka-producer
+    spec:
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - kafka-producer
+              topologyKey: topology.kubernetes.io/host      
+      containers:
+      - imagePullPolicy: Always                                          
+        image: bitnami/kafka:2.8.0
+        command:
+        - /bin/bash
+        - -ecx
+        - /opt/bitnami/kafka/bin/kafka-producer-perf-test.sh --producer.config /config/producer.properties --topic test-topic --num-records ${record_number} --print-metrics --throughput -1 --record-size ${record_size}
+        name: tool
+        volumeMounts:
+        - mountPath: /certs
+          name: certs     
+        - mountPath: /config
+          name: config                 
+      volumes:
+      - name: certs
+        secret:
+          secretName: kafka-tls
+      - name: config
+        configMap:
+          name: kafka-tool-config
+      restartPolicy: Never    
+  backoffLimit: 1

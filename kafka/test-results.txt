@@ -30,3 +30,63 @@ defaylt partitioner
 5000000 records sent, 45667.105071 records/sec (44.60 MB/sec), 10524.37 ms avg latency, 18437.00 ms max latency, 11475 ms 50th, 16987 ms 95th, 17874 ms 99th, 18189 ms 99.9th.
 
 
+run $7
+
+9 producers
+
+cluster1
+5000000 records sent, 22395.714356 records/sec (21.87 MB/sec), 20946.72 ms avg latency, 44846.00 ms max latency, 17961 ms 50th, 40277 ms 95th, 41915 ms 99th, 43322 ms 99.9th.
+5000000 records sent, 20792.009215 records/sec (20.30 MB/sec), 23339.08 ms avg latency, 43751.00 ms max latency, 25378 ms 50th, 41348 ms 95th, 42792 ms 99th, 43337 ms 99.9th.
+5000000 records sent, 24102.425668 records/sec (23.54 MB/sec), 20098.27 ms avg latency, 48124.00 ms max latency, 19178 ms 50th, 40348 ms 95th, 46390 ms 99th, 47740 ms 99.9th.
+
+cluster2
+5000000 records sent, 22219.358394 records/sec (21.70 MB/sec), 24465.05 ms avg latency, 46151.00 ms max latency, 27461 ms 50th, 41237 ms 95th, 44377 ms 99th, 45745 ms 99.9th.
+5000000 records sent, 21987.203448 records/sec (21.47 MB/sec), 23706.54 ms avg latency, 47005.00 ms max latency, 27087 ms 50th, 42925 ms 95th, 45760 ms 99th, 46543 ms 99.9th.
+5000000 records sent, 21551.724138 records/sec (21.05 MB/sec), 23663.37 ms avg latency, 50111.00 ms max latency, 24517 ms 50th, 43205 ms 95th, 48134 ms 99th, 49255 ms 99.9th.
+
+cluster3
+5000000 records sent, 21482.000232 records/sec (20.98 MB/sec), 21952.40 ms avg latency, 50351.00 ms max latency, 19436 ms 50th, 45425 ms 95th, 47816 ms 99th, 49970 ms 99.9th.
+5000000 records sent, 21109.248806 records/sec (20.61 MB/sec), 24112.59 ms avg latency, 47542.00 ms max latency, 24212 ms 50th, 43712 ms 95th, 45996 ms 99th, 47341 ms 99.9th.
+5000000 records sent, 21841.786833 records/sec (21.33 MB/sec), 24339.50 ms avg latency, 45512.00 ms max latency, 25971 ms 50th, 42133 ms 95th, 44082 ms 99th, 45205 ms 99.9th.
+
+189 MB/sec
+
+run #8
+
+cluster1
+5000000 records sent, 36894.923259 records/sec (36.03 MB/sec), 14533.05 ms avg latency, 24975.00 ms max latency, 15971 ms 50th, 22043 ms 95th, 24360 ms 99th, 24831 ms 99.9th.
+
+cluster2
+5000000 records sent, 32388.454164 records/sec (31.63 MB/sec), 14569.22 ms avg latency, 27859.00 ms max latency, 15745 ms 50th, 23720 ms 95th, 26922 ms 99th, 27624 ms 99.9th.
+
+cluster3
+5000000 records sent, 35893.496816 records/sec (35.05 MB/sec), 15157.89 ms avg latency, 24038.00 ms max latency, 16036 ms 50th, 21999 ms 95th, 23015 ms 99th, 23752 ms 99.9th.
+
+102 MB/sec
+
+run #9
+
+cluster1
+5000000 records sent, 27692.239527 records/sec (27.04 MB/sec), 19213.86 ms avg latency, 37773.00 ms max latency, 18955 ms 50th, 30510 ms 95th, 35739 ms 99th, 37593 ms 99.9th.
+5000000 records sent, 28204.766606 records/sec (27.54 MB/sec), 19560.76 ms avg latency, 35805.00 ms max latency, 21090 ms 50th, 32341 ms 95th, 33673 ms 99th, 35665 ms 99.9th.
+
+cluster2
+5000000 records sent, 25234.682548 records/sec (24.64 MB/sec), 19170.19 ms avg latency, 37174.00 ms max latency, 20359 ms 50th, 33158 ms 95th, 35564 ms 99th, 36883 ms 99.9th.
+5000000 records sent, 25445.422114 records/sec (24.85 MB/sec), 19712.82 ms avg latency, 44175.00 ms max latency, 21141 ms 50th, 36827 ms 95th, 42476 ms 99th, 43168 ms 99.9th.
+
+cluster3
+5000000 records sent, 28006.968134 records/sec (27.35 MB/sec), 19523.34 ms avg latency, 35683.00 ms max latency, 19176 ms 50th, 31301 ms 95th, 33839 ms 99th, 34897 ms 99.9th.
+5000000 records sent, 25306.845502 records/sec (24.71 MB/sec), 19419.07 ms avg latency, 43225.00 ms max latency, 18421 ms 50th, 38881 ms 95th, 42433 ms 99th, 43027 ms 99.9th.
+
+153 MB/sec
+
+run $10
+
+18 producers
+5000000 records sent, 9659.913099 records/sec (9.43 MB/sec), 44234.84 ms avg latency, 120336.00 ms max latency, 39228 ms 50th, 98748 ms 95th, 118158 ms 99th, 120003 ms 99.9th.
+with many timeouts:
+180 MB/s
+
+run #11
+
+changed 
