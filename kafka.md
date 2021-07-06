@@ -57,12 +57,16 @@ done
 
 Enable monitoring
 
+deploy the operator
+
 ```shell
 for context in ${cluster1} ${cluster2} ${cluster3}; do
   oc --context ${context} apply -f ./kafka/user-workload-monitoring.yaml
   oc --context ${context} apply -f ./kafka/grafana/operator.yaml -n kafka
 done
 ```
+
+deploy grafana
 
 ```shell
 for context in ${cluster1} ${cluster2} ${cluster3}; do
@@ -97,13 +101,13 @@ start consumer
 
 ```shell
 export tool_pod=$(oc --context cluster1 get pod -n kafka | grep tool | awk '{print $1}')
-oc --context cluster1 exec -n kafka ${tool_pod} -- /opt/bitnami/kafka/bin/kafka-consumer-perf-test.sh --bootstrap-server kafka.kafka.svc.cluster.local:9093 --consumer.config /config/consumer.properties --topic test-topic --messages 1000
+oc --context cluster1 exec -n kafka ${tool_pod} -- /opt/bitnami/kafka/bin/kafka-consumer-perf-test.sh --bootstrap-server kafka.kafka.svc.cluster.local:9093 --consumer.config /config/consumer.properties --topic test-topic --messages 5000000
 ```
 
 ### Multiple producer/consumer runs
 
 ```shell
-export producer_number=6
+export producer_number=1
 export record_number=5000000
 export record_size=1024
 for context in ${cluster1} ${cluster2} ${cluster3}; do

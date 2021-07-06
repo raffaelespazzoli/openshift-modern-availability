@@ -1,0 +1,35 @@
+replicaCount: 2
+#serviceType: LoadBalancer
+isClusterService: false
+servers:
+- zones:
+  - zone: ${global_base_domain}
+  port: 5353
+  plugins:
+  - name: errors
+  # Serves a /health endpoint on :8080, required for livenessProbe
+  - name: health
+    configBlock: |-
+      lameduck 5s
+  # Serves a /ready endpoint on :8181, required for readinessProbe
+  - name: ready
+  # Required to query kubernetes API for data
+  - name: etcd
+    parameters: ${global_base_domain}
+    configBlock: |-
+      path /glb
+      tls /certs/tls.crt /certs/tls.key /certs/ca.crt
+      endpoint https://etcd.etcd.svc.clusterset.local:2379  
+  # Serves a /metrics endpoint on :9153, required for serviceMonitor
+  # - name: prometheus
+  #   parameters: 0.0.0.0:9153
+  #- name: cache
+  #  parameters: 30
+  #- name: loop
+  #- name: reload
+  #- name: loadbalance
+  - name: log
+
+extraSecrets:
+- name: etcd-tls
+  mountPath: /certs  

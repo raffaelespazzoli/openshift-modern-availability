@@ -42,18 +42,21 @@ create clusters
 export region="us-east-1"
 export network_cidr="10.128.0.0/14"
 export service_cidr="172.30.0.0/16"
+export node_cidr="10.0.0.0/16"
 envsubst < ./acm/acm-cluster-values.yaml > /tmp/values.yaml
 helm upgrade cluster1 ./charts/acm-aws-cluster --create-namespace -i -n cluster1  -f /tmp/values.yaml
 
 export region="us-east-2"
 export network_cidr="10.132.0.0/14"
 export service_cidr="172.31.0.0/16"
+export node_cidr="10.1.0.0/16"
 envsubst < ./acm/acm-cluster-values.yaml > /tmp/values.yaml
 helm upgrade cluster2 ./charts/acm-aws-cluster --create-namespace -i -n cluster2  -f /tmp/values.yaml
 
 export region="us-west-2"
 export network_cidr="10.136.0.0/14"
 export service_cidr="172.32.0.0/16"
+export node_cidr="10.2.0.0/16"
 envsubst < ./acm/acm-cluster-values.yaml > /tmp/values.yaml
 helm upgrade cluster3 ./charts/acm-aws-cluster --create-namespace -i -n cluster3  -f /tmp/values.yaml
 ```
@@ -110,6 +113,63 @@ export cluster3=cluster3
 ```
 
 Now the `${cluster1}`,`${cluster2}` and `${cluster3}` variables contain the kube context to be used to connect to the respective clusters.
+
+### Peer the VPCs
+
+```shell
+export infrastrcuture_id1=$(oc --context cluster1 get infrastrcture cluster -o jsonpath='{.status.infratructureName}')
+export infrastrcuture_id2=$(oc --context cluster2 get infrastrcture cluster -o jsonpath='{.status.infratructureName}')
+export infrastrcuture_id3=$(oc --context cluster3 get infrastrcture cluster -o jsonpath='{.status.infratructureName}')
+export region1="us-east-1"
+export region2="us-east-2"
+export region3="us-west-2"
+export vpc_id1=$(aws --region ${region1} ec2 describe-vpcs  --filter Name=tag:Name,Values=${infrastrcuture_id1}-vpc | jq -r .Vpcs[0].VpcId)
+export vpc_id2=$(aws --region ${region2} ec2 describe-vpcs  --filter Name=tag:Name,Values=${infrastrcuture_id2}-vpc | jq -r .Vpcs[0].VpcId)
+export vpc_id3=$(aws --region ${region3} ec2 describe-vpcs  --filter Name=tag:Name,Values=${infrastrcuture_id3}-vpc | jq -r .Vpcs[0].VpcId)
+export vpc1_main_route_table_id=$(aws --region ${region1} ec2 describe-route-tables --filter Name=tag:Name,Values=${infrastrcuture_id1}-public | jq -r .RouteTables[0].RouteTableId)
+export vpc2_main_route_table_id=$(aws --region ${region2} ec2 describe-route-tables --filter Name=tag:Name,Values=${infrastrcuture_id2}-public | jq -r .RouteTables[0].RouteTableId)
+export vpc3_main_route_table_id=$(aws --region ${region3} ec2 describe-route-tables --filter Name=tag:Name,Values=${infrastrcuture_id3}-public | jq -r .RouteTables[0].RouteTableId)
+export cluster1_node_cidr=$(aws --region ${region1} ec2 describe-vpcs  --filter Name=tag:Name,Values=${infrastrcuture_id1}-vpc | jq -r .Vpcs[0].CidrBlock)
+export cluster2_node_cidr=$(aws --region ${region2} ec2 describe-vpcs  --filter Name=tag:Name,Values=${infrastrcuture_id2}-vpc | jq -r .Vpcs[0].CidrBlock)
+export cluster3_node_cidr=$(aws --region ${region3} ec2 describe-vpcs  --filter Name=tag:Name,Values=${infrastrcuture_id3}-vpc | jq -r .Vpcs[0].CidrBlock)
+
+#Peering 1 to 2
+export peering_connection1_2=$(aws ec2 create-vpc-peering-connection --peer-id ${vpc_id1} --peer-vpc-id ${vpc_id2} --peer-region ${region2} | jq -r .VpcPeeringConnection.VpcPeeringConnectionId)
+aws ec2 accept-vpc-peering-connection ${peering_connection1_2}
+aws ec2 modify-vpc-peering-connection-options --vpc-peering-connection-id ${peering_connection1_2} --requester-peering-connection-options AllowDnsResolutionFromRemoteVpc=true
+ews ec2 create-route -destination-cidr-block ${cluster2_node_cidr} --vpc-peering-connection-id ${peering_connection1_2} --route-table-id ${vpc1_main_route_table_id}
+
+#Peering 1 to 3
+export peering_connection1_3=$(aws ec2 create-vpc-peering-connection --peer-id ${vpc_id1} --peer-vpc-id ${vpc_id3} --peer-region ${region3} | jq -r .VpcPeeringConnection.VpcPeeringConnectionId)
+aws ec2 accept-vpc-peering-connection ${peering_connection1_3}
+aws ec2 modify-vpc-peering-connection-options --vpc-peering-connection-id ${peering_connection1_3} --requester-peering-connection-options AllowDnsResolutionFromRemoteVpc=true
+ews ec2 create-route -destination-cidr-block ${cluster3_node_cidr} --vpc-peering-connection-id ${peering_connection1_3} --route-table-id ${vpc1_main_route_table_id}
+
+#Peering 2 to 1
+export peering_connection2_1=$(aws ec2 create-vpc-peering-connection --peer-id ${vpc_id2} --peer-vpc-id ${vpc_id1} --peer-region ${region1} | jq -r .VpcPeeringConnection.VpcPeeringConnectionId)
+aws ec2 accept-vpc-peering-connection ${peering_connection2_1}
+aws ec2 modify-vpc-peering-connection-options --vpc-peering-connection-id ${peering_connection2_1} --requester-peering-connection-options AllowDnsResolutionFromRemoteVpc=true
+ews ec2 create-route -destination-cidr-block ${cluster1_node_cidr} --vpc-peering-connection-id ${peering_connection2_1} --route-table-id ${vpc2_main_route_table_id}
+
+#Peering 2 to 3
+export peering_connection2_3=$(aws ec2 create-vpc-peering-connection --peer-id ${vpc_id2} --peer-vpc-id ${vpc_id3} --peer-region ${region3} | jq -r .VpcPeeringConnection.VpcPeeringConnectionId)
+aws ec2 accept-vpc-peering-connection ${peering_connection2_3}
+aws ec2 modify-vpc-peering-connection-options --vpc-peering-connection-id ${peering_connection2_3} --requester-peering-connection-options AllowDnsResolutionFromRemoteVpc=true
+ews ec2 create-route -destination-cidr-block ${cluster3_node_cidr} --vpc-peering-connection-id ${peering_connection2_3} --route-table-id ${vpc2_main_route_table_id}
+
+#Peering 3 to 1
+export peering_connection3_1=$(aws ec2 create-vpc-peering-connection --peer-id ${vpc_id3} --peer-vpc-id ${vpc_id1} --peer-region ${region1} | jq -r .VpcPeeringConnection.VpcPeeringConnectionId)
+aws ec2 accept-vpc-peering-connection ${peering_connection3_1}
+aws ec2 modify-vpc-peering-connection-options --vpc-peering-connection-id ${peering_connection3_1} --requester-peering-connection-options AllowDnsResolutionFromRemoteVpc=true
+ews ec2 create-route -destination-cidr-block ${cluster1_node_cidr} --vpc-peering-connection-id ${peering_connection3_1} --route-table-id ${vpc3_main_route_table_id}
+
+#Peering 3 to 2
+export peering_connection3_2=$(aws ec2 create-vpc-peering-connection --peer-id ${vpc_id3} --peer-vpc-id ${vpc_id2} --peer-region ${region2} | jq -r .VpcPeeringConnection.VpcPeeringConnectionId)
+aws ec2 accept-vpc-peering-connection ${peering_connection3_2}
+aws ec2 modify-vpc-peering-connection-options --vpc-peering-connection-id ${peering_connection3_2} --requester-peering-connection-options AllowDnsResolutionFromRemoteVpc=true
+ews ec2 create-route -destination-cidr-block ${cluster2_node_cidr} --vpc-peering-connection-id ${peering_connection3_2} --route-table-id ${vpc3_main_route_table_id}
+
+```
 
 ### verify submariner installation
 
@@ -308,6 +368,21 @@ At this point your architecture should look like the below image:
 ![Network Tunnel](./media/Submariner.png)
 
 ## Troubleshooting Submariner
+
+## Performance test
+
+```shell
+subctl benchmark throughput ~/Downloads/cluster1-kubeconfig.yaml ~/Downloads/cluster2-kubeconfig.yaml
+subctl benchmark throughput ~/Downloads/cluster2-kubeconfig.yaml ~/Downloads/cluster1-kubeconfig.yaml
+subctl benchmark throughput ~/Downloads/cluster2-kubeconfig.yaml ~/Downloads/cluster3-kubeconfig.yaml
+subctl benchmark throughput ~/Downloads/cluster3-kubeconfig.yaml ~/Downloads/cluster2-kubeconfig.yaml
+subctl benchmark throughput ~/Downloads/cluster3-kubeconfig.yaml ~/Downloads/cluster1-kubeconfig.yaml
+subctl benchmark throughput ~/Downloads/cluster1-kubeconfig.yaml ~/Downloads/cluster3-kubeconfig.yaml
+
+subctl benchmark latency ~/Downloads/cluster1-kubeconfig.yaml ~/Downloads/cluster2-kubeconfig.yaml
+subctl benchmark latency ~/Downloads/cluster2-kubeconfig.yaml ~/Downloads/cluster3-kubeconfig.yaml
+subctl benchmark latency ~/Downloads/cluster3-kubeconfig.yaml ~/Downloads/cluster1-kubeconfig.yaml
+```
 
 ### Restarting submariner pods
 

@@ -43,7 +43,7 @@ install_config:
       # added by template
     - cidr: ""
       hostPrefix: 23
-    machineCIDR: 10.0.0.0/16
+    machineCIDR: ${node_cidr}
     networkType: OpenShiftSDN
     serviceNetwork:
       # added by template

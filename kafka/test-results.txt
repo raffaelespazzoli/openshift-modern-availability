@@ -89,4 +89,15 @@ with many timeouts:
 
 run #11
 
+5000000 records sent, 63283.929679 records/sec (61.80 MB/sec), 8550.55 ms avg latency, 17534.00 ms max latency, 9977 ms 50th, 15702 ms 95th, 17175 ms 99th, 17447 ms 99.9th.
+
+
 changed 
+socket send buffer
+lingerms
+
+run 12
+
+18 partitions
+
+5000000 records sent, 72677.587686 records/sec (70.97 MB/sec), 7400.66 ms avg latency, 13822.00 ms max latency, 8041 ms 50th, 12601 ms 95th, 13232 ms 99th, 13686 ms 99.9th.

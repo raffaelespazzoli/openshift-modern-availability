@@ -1,0 +1,94 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: etcd
+spec:
+  serviceName: "etcd"
+  replicas: {{ .Values.replicas }}
+  selector:
+    matchLabels:
+      app: etcd
+  template:
+    metadata:
+      labels:
+        app: etcd
+    spec:
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - etcd
+              topologyKey: topology.kubernetes.io/zone    
+      containers:
+      - name: etcd
+        image: bitnami/etcd:3.5.0
+        env:
+        - name: ETCD_CONFIG_FILE
+          value: /config/etcd.properties
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: ETCD_INITIAL_CLUSTER
+          value: {{ $namespace := .Release.Namespace  -}}
+                {{- $replicas:= .Values.replicas -}}
+                {{- range .Values.clusterNames -}}
+                {{- $cluster:= . -}}    
+                {{- range until (int $replicas) -}}
+                etcd-{{ . }}-{{ $cluster }}=https://etcd-{{ . }}.{{ $cluster }}.etcd.{{ $namespace }}.svc.clusterset.local:2380,
+                {{- end -}}
+                {{- end }}      
+        command:
+        - /bin/bash
+        - -ecx
+        - | 
+          cp /config/etcd.properties /tmp/etcd.properties
+          echo name: ${POD_NAME}-{{ .Values.cluster }} >> /tmp/etcd.properties
+          echo initial-cluster: ${ETCD_INITIAL_CLUSTER} >> /tmp/etcd.properties
+          echo initial-advertise-peer-urls: https://${POD_NAME}.{{ .Values.cluster }}.etcd.{{ .Release.Namespace }}.svc.clusterset.local:2380 >> /tmp/etcd.properties
+          echo advertise-client-urls: https://${POD_NAME}.{{ .Values.cluster }}.etcd.{{ .Release.Namespace }}.svc.clusterset.local:2379 >> /tmp/etcd.properties
+          /opt/bitnami/etcd/bin/etcd --config-file /tmp/etcd.properties
+        ports:
+        - containerPort: 2380
+          name: cluster-tls
+          protocol: TCP
+        - containerPort: 2379
+          name: clients-tls
+          protocol: TCP          
+        volumeMounts:
+        - name: etcd-data
+          mountPath: /etcd-data
+        - name: etcd-wal
+          mountPath: /etcd-wal          
+        - name: certs
+          mountPath: /certs
+        - mountPath: /config
+          name: config                           
+      volumes:
+      - name: certs
+        secret:
+          secretName: etcd-tls
+      - name: config
+        configMap:
+          name: etcd-config          
+  volumeClaimTemplates:
+  - metadata:
+      name: etcd-data
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 5Gi
+  - metadata:
+      name: etcd-wal
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 1Gi          
