@@ -1,0 +1,43 @@
+apiVersion: hive.openshift.io/v1
+kind: MachinePool
+metadata:
+  name: {{ .Release.Namespace }}-worker
+spec:
+  clusterDeploymentRef:
+    name: {{ .Release.Namespace }}
+  name: worker
+  platform:
+    azure:
+      osDisk:
+        diskSizeGB: 128
+      type: Standard_D2s_v3
+      zones:
+      - "1"
+      - "2"
+      - "3"
+  replicas: 3
+---
+apiVersion: hive.openshift.io/v1
+kind: MachinePool
+metadata:
+  name: {{ .Release.Namespace }}-submariner-gateway
+spec:
+  clusterDeploymentRef:
+    name: {{ .Release.Namespace }}
+  name: submariner-gateway
+  platform:
+    azure:
+      osDisk:
+        diskSizeGB: 128
+      type: Standard_D2s_v3
+      zones:
+      - "1"
+      - "2"
+      - "3"
+  replicas: 1  
+  labels:
+    submariner.io/gateway: 'true'
+  taints:
+  - key: "submariner.io/gateway"
+    value: 'true'
+    effect: NoSchedule  

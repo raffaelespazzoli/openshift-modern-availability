@@ -1,0 +1,83 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: iperf-server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: iperf-server
+  template:
+    metadata:
+      labels:
+        app: iperf-server
+    spec:
+      hostNetwork: true
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: "submariner.io/gateway"
+                operator: In
+                values:
+                - 'true'      
+      tolerations:
+      - key: "node-role.submariner.io/gateway"
+        effect: "NoSchedule"      
+      containers:
+      - imagePullPolicy: Always                                          
+        image: networkstatic/iperf3
+        name: iperf                
+        command: 
+        - /bin/bash
+        - -ecx
+        - "iperf3 -s -p 5201"
+        securityContext:
+          privileged: false
+          allowPrivilegeEscalation: true
+          capabilities:
+            add: 
+              - ALL      
+---        
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: iperf-client
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: iperf-client
+  template:
+    metadata:
+      labels:
+        app: iperf-client
+    spec:
+      hostNetwork: true
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: "submariner.io/gateway"
+                operator: In
+                values:
+                - 'true'      
+      tolerations:
+      - key: "node-role.submariner.io/gateway"
+        effect: "NoSchedule"      
+      containers:
+      - imagePullPolicy: Always                                          
+        image: networkstatic/iperf3
+        name: iperf                
+        command: 
+        - /bin/bash
+        - -ecx
+        - "sleep infinity" 
+        securityContext:
+          privileged: false
+          allowPrivilegeEscalation: true
+          capabilities:
+            add: 
+              - ALL                              

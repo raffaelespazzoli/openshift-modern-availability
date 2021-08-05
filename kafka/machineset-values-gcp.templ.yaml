@@ -1,0 +1,9 @@
+clusterName: ${cluster_name}
+machinePurpose: ${machine_purpose}
+zone: ${zone}
+region: ${region}
+infrastructure: ${infrastructure}
+gcp:
+  machineType: ${machine_type}
+  projectID: ${gcp_project_id}
+  image: ${image}

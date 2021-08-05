@@ -1,0 +1,120 @@
+global:
+  tlsDisable: false
+  openshift: true
+
+clusterNames:
+  - cluster1
+  - cluster2
+  - cluster3
+
+rootca_crt: ${rootca_crt} 
+rootca_key: ${rootca_key}
+global_base_domain: ${global_base_domain}
+
+vault:  
+  ui:
+    enabled: true
+  server:
+    image: 
+      tag: 1.7.3
+    multicluster:
+      enabled: true
+      cluster: ${cluster}     
+    extraVolumes:
+      - type: 'secret'
+        name: 'vault-tls'
+        path: '/etc'
+      - type: 'secret'
+        name: 'kms-cloud-credentials'
+        path: '/etc'                 
+    ha:
+      replicas: 3
+      enabled: true
+      raft:
+        enabled: true
+        setNodeId: true
+        config: |
+          ui = true
+
+          listener "tcp" {
+            address = "[::]:8200"
+            cluster_address = "[::]:8201"
+            tls_cert_file="/etc/vault-tls/tls.crt"
+            tls_key_file="/etc/vault-tls/tls.key"
+            tls_client_ca_file="/etc/vault-tls/ca.crt"          
+          }
+
+          seal "gcpckms" {
+            credentials = "/etc/kms-cloud-credentials/service_account.json"
+            project     = "${gcp_project_id}"
+            region      = "global"
+            key_ring    = "acm"
+            crypto_key  = "vault"
+          }
+
+          storage "raft" {
+            path = "/vault/data"
+    
+            retry_join {
+              leader_api_addr = "https://vault-0.cluster1.vault-internal.vault.svc.clusterset.local:8200"
+              leader_ca_cert_file = "/etc/vault-tls/ca.crt"
+            }
+
+            retry_join {
+              leader_api_addr = "https://vault-1.cluster1.vault-internal.vault.svc.clusterset.local:8200"
+              leader_ca_cert_file = "/etc/vault-tls/ca.crt"
+            }
+
+            retry_join {
+              leader_api_addr = "https://vault-2.cluster1.vault-internal.vault.svc.clusterset.local:8200"
+              leader_ca_cert_file = "/etc/vault-tls/ca.crt"
+            }            
+
+            retry_join {
+              leader_api_addr = "https://vault-0.cluster2.vault-internal.vault.svc.clusterset.local:8200"
+              leader_ca_cert_file = "/etc/vault-tls/ca.crt"
+            }
+
+            retry_join {
+              leader_api_addr = "https://vault-1.cluster2.vault-internal.vault.svc.clusterset.local:8200"
+              leader_ca_cert_file = "/etc/vault-tls/ca.crt"
+            }
+
+            retry_join {
+              leader_api_addr = "https://vault-2.cluster2.vault-internal.vault.svc.clusterset.local:8200"
+              leader_ca_cert_file = "/etc/vault-tls/ca.crt"
+            }               
+
+            retry_join {
+              leader_api_addr = "https://vault-0.cluster3.vault-internal.vault.svc.clusterset.local:8200"
+              leader_ca_cert_file = "/etc/vault-tls/ca.crt"
+            }
+
+            retry_join {
+              leader_api_addr = "https://vault-1.cluster3.vault-internal.vault.svc.clusterset.local:8200"
+              leader_ca_cert_file = "/etc/vault-tls/ca.crt"
+            }      
+
+            retry_join {
+              leader_api_addr = "https://vault-2.cluster3.vault-internal.vault.svc.clusterset.local:8200"
+              leader_ca_cert_file = "/etc/vault-tls/ca.crt"
+            }                              
+
+          }
+
+          log_level = "debug"
+
+          service_registration "kubernetes" {}  
+    affinity: |
+      podAntiAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchLabels:
+                app.kubernetes.io/name: vault
+                app.kubernetes.io/instance: vault
+                component: server
+            topologyKey: failure-domain.beta.kubernetes.io/zone        
+  injector:
+    extraEnvironmentVars: 
+      AGENT_INJECT_SET_SECURITY_CONTEXT: "false"
+

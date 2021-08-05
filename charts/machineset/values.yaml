@@ -1,7 +1,13 @@
-allzones: false
-zones: []
-machineType: m4.large
-taints: {}
-machineSetLabels: {}
-machineLabels: {}
-nodeLabels: {}
+replicas: 1
+# clusterName: ""
+# machinePurpose: ""
+# zone: ""
+# region: ""
+# infrastructure: ""
+# gcp:
+#   machineType: ""
+#   projectID: ""
+#   image: ""
+# aws:
+#   ami: ""
+#   instanceType: ""  

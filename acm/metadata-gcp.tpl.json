@@ -1,0 +1,17 @@
+{
+  "clusterName": "${cluster_name}",
+  "clusterID": "${cluster_id}",
+  "infraID": "${infra_id}",
+  "gcp": {
+    "region": "${region}",
+    "projectID": "${gcp_project_id}",
+    "identifier": [
+      {
+        "kubernetes.io/cluster/${infra_id}": "owned"
+      },
+      {
+        "openshiftClusterID": "${cluster_id}"
+      }
+    ]
+  }
+}

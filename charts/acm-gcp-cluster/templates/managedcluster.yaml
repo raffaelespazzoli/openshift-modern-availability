@@ -1,0 +1,13 @@
+apiVersion: cluster.open-cluster-management.io/v1
+kind: ManagedCluster
+metadata:
+  labels:
+    cloud: Google
+    name: {{ .Release.Namespace }}
+    vendor: OpenShift
+    cluster.open-cluster-management.io/clusterset: gdw
+    cluster.open-cluster-management.io/submariner-agent: "true"
+    region: {{ .Values.region }}
+  name: {{ .Release.Namespace }}
+spec:
+  hubAcceptsClient: true

@@ -3,8 +3,9 @@ baseDomain: ${base_domain}
 sshKey: |
 ${ssh_key}  
 sshPubKey: ${ssh_pub_key}
-aws_id: ${aws_id}
-aws_key: ${aws_key}
+baseDomainResourceGroupName: ${base_domain_resource_group_name}
+azr_sa_json: 
+${azr_sa_json}
 docker_pull_secret: 
   ${pull_secret}
 cluster_network_cidr: ${network_cidr}

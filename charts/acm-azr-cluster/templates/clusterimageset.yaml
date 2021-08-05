@@ -1,0 +1,8 @@
+apiVersion: hive.openshift.io/v1
+kind: ClusterImageSet
+metadata:
+  labels:
+    channel: stable
+  name: {{ .Release.Namespace }}
+spec:
+  releaseImage: {{ .Values.clusterReleaseImage }}

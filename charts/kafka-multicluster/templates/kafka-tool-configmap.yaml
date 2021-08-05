@@ -24,6 +24,10 @@ data:
 
     group.id=test-consumer
     client.rack={{ .Values.cluster }}
+    isolation.level=read_committed
+    receive.buffer.bytes={{ div (mul .Values.latency .Values.bandwidth) 1000 }}
+    send.buffer.bytes={{ div (mul .Values.latency .Values.bandwidth) 1000 }}
+    
 
   producer.properties: |
     bootstrap.servers=kafka.kafka.svc.cluster.local:9093
@@ -39,7 +43,7 @@ data:
     enable.idempotence=true
     compression.type=lz4
     # partitioner.class=org.apache.kafka.clients.producer.UniformStickyPartitioner
-    batch.size=32768
+    #batch.size=32768
     linger.ms=50
 
     # the send buffer used by the socket server 
@@ -47,7 +51,7 @@ data:
 
     # using bandwidth-delay approach (https://en.wikipedia.org/wiki/Bandwidth-delay_product): 
     # 250MBps (as measured by subctl benchmark throughtput) and 70ms -> 250 * 10^6 b/s * 7 *10^-3 s = 1750*10^3 =~ 1.5MB 
-    send.buffer.bytes=1572864
+    send.buffer.bytes={{ div (mul .Values.latency .Values.bandwidth) 1000 }}
     # the receive buffer used by the socket server
     #socket.receive.buffer=1048576
-    receive.buffer.bytes=1572864
+    receive.buffer.bytes={{ div (mul .Values.latency .Values.bandwidth) 1000 }}

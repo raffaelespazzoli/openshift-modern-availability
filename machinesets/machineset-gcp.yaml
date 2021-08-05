@@ -1,0 +1,61 @@
+apiVersion: machine.openshift.io/v1beta1
+kind: MachineSet
+metadata:
+  labels:
+    machine.openshift.io/cluster-api-cluster: ${cluster_name}
+  name: ${cluster_name}-${machine_type}-${zone}
+  namespace: openshift-machine-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      machine.openshift.io/cluster-api-cluster: ${cluster_name}
+      machine.openshift.io/cluster-api-machineset: ${cluster_name}-${machine_type}-${zone}
+  template:
+    metadata:
+      labels:
+        machine.openshift.io/cluster-api-cluster: ${cluster_name}
+        machine.openshift.io/cluster-api-machine-role: worker
+        machine.openshift.io/cluster-api-machine-type: ${machine_type}
+        machine.openshift.io/cluster-api-machineset: ${cluster_name}-${machine_type}-${zone}
+    spec:
+      metadata: 
+        labels:
+          workload: ${machine_type}
+      taints:
+      - effect: NoSchedule
+        key: workload
+        value: ${machine_type}    
+      providerSpec:
+        value:
+          machineType: ${instance_type}
+          userDataSecret:
+            name: worker-user-data
+          deletionProtection: false
+          networkInterfaces:
+            - network: ${cluster_name}-network
+              subnetwork: ${cluster_name}-worker-subnet
+          credentialsSecret:
+            name: gcp-cloud-credentials
+          zone: ${zone}
+          canIPForward: false
+          metadata:
+            creationTimestamp: null
+          projectID: ${gcp_project_id}
+          region: ${region}
+          kind: GCPMachineProviderSpec
+          disks:
+            - autoDelete: true
+              boot: true
+              image: >-
+                projects/rhcos-cloud/global/images/rhcos-47-83-202105220305-0-gcp-x86-64
+              labels: null
+              sizeGb: 128
+              type: pd-ssd
+          tags:
+            - ${cluster_name}-worker
+          serviceAccounts:
+            - email: ${cluster_name}-w@gc-acm-leads.iam.gserviceaccount.com
+              scopes:
+                - 'https://www.googleapis.com/auth/cloud-platform'
+          apiVersion: gcpprovider.openshift.io/v1beta1

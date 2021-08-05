@@ -12,3 +12,7 @@ zookeeper:
 kafka:
   replicas: 3  
 
+
+latency: ${latency}
+bandwidth: ${bandwidth}  
+

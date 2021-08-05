@@ -148,23 +148,29 @@ spec:
       name: data1
     spec:
       accessModes: [ "ReadWriteOnce" ]
-      storageClassName: "local-sc"
+      {{ if .Values.kafka.storage.storageClass }}
+      storageClassName: {{ .Values.kafka.storage.storageClass }}
+      {{ end }}
       resources:
         requests:
-          storage: 1844Gi
+          storage: {{ .Values.kafka.storage.size }}
   - metadata:
       name: data2
     spec:
       accessModes: [ "ReadWriteOnce" ]
-      storageClassName: "local-sc"
+      {{ if .Values.kafka.storage.storageClass }}
+      storageClassName: {{ .Values.kafka.storage.storageClass }}
+      {{ end }}
       resources:
         requests:
-          storage: 1844Gi
+          storage: {{ .Values.kafka.storage.size }}
   - metadata:
       name: data3
     spec:
       accessModes: [ "ReadWriteOnce" ]
-      storageClassName: "local-sc"
+      {{ if .Values.kafka.storage.storageClass }}
+      storageClassName: {{ .Values.kafka.storage.storageClass }}
+      {{ end }}
       resources:
         requests:
-          storage: 1844Gi                         
+          storage: {{ .Values.kafka.storage.size }}                         

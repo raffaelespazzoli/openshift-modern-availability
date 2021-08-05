@@ -1,4 +1,4 @@
-configuration: |
+configuration:
   akhq:
     connections:
       kafka-cluster:

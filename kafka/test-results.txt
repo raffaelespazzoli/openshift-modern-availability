@@ -101,3 +101,101 @@ run 12
 18 partitions
 
 5000000 records sent, 72677.587686 records/sec (70.97 MB/sec), 7400.66 ms avg latency, 13822.00 ms max latency, 8041 ms 50th, 12601 ms 95th, 13232 ms 99th, 13686 ms 99.9th.
+
+
+---------------
+
+gcp
+
+3 producer
+
+34.59 MB/sec each
+5000000 records sent, 35420.548168 records/sec (34.59 MB/sec), 13368.62 ms avg latency, 33460.00 ms max latency, 16402 ms 50th, 28453 ms 95th, 32628 ms 99th, 33234 ms 99.9th.
+
+100 MB/sec
+
+
+5000000 records sent, 25538.478826 records/sec (24.94 MB/sec), 23139.70 ms avg latency, 45378.00 ms max latency, 28642 ms 50th, 41272 ms 95th, 44546 ms 99th, 45186 ms 99.9th.
+
+29x9-> 261
+
+18 producers
+5000000 records sent, 14932.014538 records/sec (14.58 MB/sec), 39590.90 ms avg latency, 84725.00 ms max latency, 42626 ms 50th, 75078 ms 95th, 81201 ms 99th, 84456 ms 99.9th.
+
+
+
+n2-standard-8
+
+3 producer ~70MB/s each -> 210 MB/s
+
+9 producers
+45MB/s each -> 441 MB/s
+
+18 producers
+26 MB/s each -> 468 MB/s
+
+batch size 32KB
+
+3 producers 70MB/s -> 210 MB/sec
+
+9 producers 45MB/s -> 441 MB/s 
+
+18 producers 26MB/s -> 468 MB/s
+
+batch size 64KB
+
+3 producers: 113 MB/s -> 339 MB/s
+
+6 producers: 77 MB/s -> 462 MB/s
+
+9 producers: 55 MB/s -> 495 MB/s
+
+18 producers: 31 MB/s -> 558 MB/s
+
+batch size 128KB
+
+3 producers: 142 MB/s -> 426 MB/s
+
+6 producers: 82 MB/s -> 492 MB/s
+
+9 producers: 58 MB/s -> 522 MB/s
+ 
+18 producers: 33 MB/s -> 594 MB/s
+
+
+36 partitions - 64KB
+
+3 producers: 206MB/s -> 618 MB/s
+
+6 producers: 136MB/s -> 816 MB/s
+
+9 producers: 93MB/s -> 837 MB/s
+
+18 producers: 54MB/s -> 972 MB/s
+
+36 partitions - 128KB
+
+3 producers: 230MB/s -> 690 MB/s
+
+6 producers: 145MB/s -> 870 MB/s
+
+9 producers: 105MB/s -> 945 MB/s
+
+18 producers: 55MB/s -> 990 MB/s
+
+72 partitions - 128KB
+
+3 producers: 290MB/s -> 870 MB/s
+
+6 producers: 200MB/s -> 1200MB/s
+
+9 producers: 143MB/s -> 1287MB/s
+
+18 producers: 80MB/s -> 1440MB/s
+
+144 partitions - 128KB 
+
+3 producers: 261MB/s 783MB/s
+
+6 producers (195, 195, 155, 131, 199, 189) 177MB/s -> 1062 MB/s
+

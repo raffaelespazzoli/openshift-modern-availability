@@ -9,4 +9,13 @@ kafka:
   replicas: 3
   image:
     name: bitnami/kafka
-    tag: "2.8.0" 
+    tag: "2.8.0"
+  storage:
+    size: 300Gi
+    
+# this must be expressed in ms
+latency: 70
+
+#this must be expressed in bit/s
+# default here is 1Gbps 1 *10^9
+bandwidth: 1000000000    

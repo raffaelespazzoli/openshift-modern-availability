@@ -3,11 +3,15 @@ baseDomain: ${base_domain}
 sshKey: |
 ${ssh_key}  
 sshPubKey: ${ssh_pub_key}
-aws_id: ${aws_id}
-aws_key: ${aws_key}
+gcp_sa_json: |
+${gcp_sa_json}
+gcp_projectID: ${gcp_project_id}
 docker_pull_secret: 
   ${pull_secret}
 cluster_network_cidr: ${network_cidr}
 service_network_cidr: ${service_cidr}
 node_cidr: ${node_cidr}
 clusterReleaseImage: ${cluster_release_image}
+
+submariner:
+  enabled: false

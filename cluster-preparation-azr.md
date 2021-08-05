@@ -29,8 +29,8 @@ Prepare some variables
 export ssh_key=$(cat ~/.ssh/ocp_rsa | sed 's/^/  /')
 export ssh_pub_key=$(cat ~/.ssh/ocp_rsa.pub)
 export pull_secret=$(cat ~/git/openshift-enablement-exam/4.0/pullsecret.json)
-export aws_id=$(cat ~/.aws/credentials | grep aws_access_key_id | cut -d'=' -f 2)
-export aws_key=$(cat ~/.aws/credentials | grep aws_secret_access_key | cut -d'=' -f 2)
+export base_domain_resource_group_name=$(oc get DNS cluster -o jsonpath='{.spec.publicZone.id}' | cut -f 5 -d "/" -)
+export azr_sa_json=$(cat ~/.azure/osServicePrincipal.json | sed 's/^/  /')
 export base_domain=$(oc get dns cluster -o jsonpath='{.spec.baseDomain}')
 export base_domain=${base_domain#*.}
 export cluster_release_image=quay.io/openshift-release-dev/ocp-release:$(oc get clusteroperator config-operator -o jsonpath='{.status.versions[0].version}')-x86_64
@@ -39,26 +39,26 @@ export cluster_release_image=quay.io/openshift-release-dev/ocp-release:$(oc get 
 create clusters
 
 ```shell
-export region="us-east-1"
+export region="eastus2"
 export network_cidr="10.128.0.0/14"
 export service_cidr="172.30.0.0/16"
 export node_cidr="10.0.0.0/16"
-envsubst < ./acm/acm-cluster-values.yaml > /tmp/values.yaml
-helm upgrade cluster1 ./charts/acm-aws-cluster --create-namespace -i -n cluster1  -f /tmp/values.yaml
+envsubst < ./acm/azr-acm-cluster-values.yaml > /tmp/values.yaml
+helm upgrade cluster1 ./charts/acm-azr-cluster --atomic --create-namespace -i -n cluster1  -f /tmp/values.yaml
 
-export region="us-east-2"
+export region="centralus"
 export network_cidr="10.132.0.0/14"
 export service_cidr="172.31.0.0/16"
 export node_cidr="10.1.0.0/16"
-envsubst < ./acm/acm-cluster-values.yaml > /tmp/values.yaml
-helm upgrade cluster2 ./charts/acm-aws-cluster --create-namespace -i -n cluster2  -f /tmp/values.yaml
+envsubst < ./acm/azr-acm-cluster-values.yaml > /tmp/values.yaml
+helm upgrade cluster2 ./charts/acm-azr-cluster --atomic --create-namespace -i -n cluster2  -f /tmp/values.yaml
 
-export region="us-west-2"
+export region="westus3"
 export network_cidr="10.136.0.0/14"
 export service_cidr="172.32.0.0/16"
 export node_cidr="10.2.0.0/16"
-envsubst < ./acm/acm-cluster-values.yaml > /tmp/values.yaml
-helm upgrade cluster3 ./charts/acm-aws-cluster --create-namespace -i -n cluster3  -f /tmp/values.yaml
+envsubst < ./acm/azr-acm-cluster-values.yaml > /tmp/values.yaml
+helm upgrade cluster3 ./charts/acm-azr-cluster --atomic --create-namespace -i -n cluster3  -f /tmp/values.yaml
 ```
 
 Wait until the clusters are ready (about 40 minutes). You can watch the progress with the following command:
@@ -77,9 +77,10 @@ Collect the cluster metadata. This is useful if something goes wrong and you nee
 for cluster in cluster1 cluster2 cluster3; do
   export cluster_name=$(oc get secret ${cluster}-install-config -n ${cluster} -o jsonpath='{.data.install-config\.yaml}' | base64 -d | yq -r .metadata.name )
   export cluster_id=$(oc get clusterdeployment ${cluster} -n ${cluster} -o jsonpath='{.spec.clusterMetadata.clusterID}')
-  export region=$(oc get clusterdeployment ${cluster} -n ${cluster} -o jsonpath='{.spec.platform.aws.region}')
+  export region=$(oc get clusterdeployment ${cluster} -n ${cluster} -o jsonpath='{.spec.platform.gcp.region}')
   export infra_id=$(oc get clusterdeployment ${cluster} -n ${cluster} -o jsonpath='{.spec.clusterMetadata.infraID}')
-  envsubst < ./acm/metadata.tpl.json > ./${cluster}-metadata.json
+  export gcp_project_id=$(cat ~/.gcp/osServiceAccount.json | jq -r .project_id)
+  envsubst < ./acm/metadata-gcp.tpl.json > ./${cluster}-metadata.json
 done
 ```
 
@@ -114,56 +115,41 @@ export cluster3=cluster3
 
 Now the `${cluster1}`,`${cluster2}` and `${cluster3}` variables contain the kube context to be used to connect to the respective clusters.
 
-### Peer the VPCs
+### Vrtual Network Peering
 
 ```shell
-export infrastructure_id1=$(oc --context cluster1 get infrastructure cluster -o jsonpath='{.status.infrastructureName}')
-export infrastructure_id2=$(oc --context cluster2 get infrastructure cluster -o jsonpath='{.status.infrastructureName}')
-export infrastructure_id3=$(oc --context cluster3 get infrastructure cluster -o jsonpath='{.status.infrastructureName}')
-export region1="us-east-1"
-export region2="us-east-2"
-export region3="us-west-2"
-export vpc_id1=$(aws --region ${region1} ec2 describe-vpcs  --filter Name=tag:Name,Values=${infrastructure_id1}-vpc | jq -r .Vpcs[0].VpcId)
-export vpc_id2=$(aws --region ${region2} ec2 describe-vpcs  --filter Name=tag:Name,Values=${infrastructure_id2}-vpc | jq -r .Vpcs[0].VpcId)
-export vpc_id3=$(aws --region ${region3} ec2 describe-vpcs  --filter Name=tag:Name,Values=${infrastructure_id3}-vpc | jq -r .Vpcs[0].VpcId)
-export vpc1_main_route_table_id=$(aws --region ${region1} ec2 describe-route-tables --filter Name=tag:Name,Values=${infrastructure_id1}-public | jq -r .RouteTables[0].RouteTableId)
-export vpc2_main_route_table_id=$(aws --region ${region2} ec2 describe-route-tables --filter Name=tag:Name,Values=${infrastructure_id2}-public | jq -r .RouteTables[0].RouteTableId)
-export vpc3_main_route_table_id=$(aws --region ${region3} ec2 describe-route-tables --filter Name=tag:Name,Values=${infrastructure_id3}-public | jq -r .RouteTables[0].RouteTableId)
-export cluster1_node_cidr=$(aws --region ${region1} ec2 describe-vpcs  --filter Name=tag:Name,Values=${infrastructure_id1}-vpc | jq -r .Vpcs[0].CidrBlock)
-export cluster2_node_cidr=$(aws --region ${region2} ec2 describe-vpcs  --filter Name=tag:Name,Values=${infrastructure_id2}-vpc | jq -r .Vpcs[0].CidrBlock)
-export cluster3_node_cidr=$(aws --region ${region3} ec2 describe-vpcs  --filter Name=tag:Name,Values=${infrastructure_id3}-vpc | jq -r .Vpcs[0].CidrBlock)
+export gcp_project_id=$(cat ~/.gcp/osServiceAccount.json | jq -r .project_id)
+export network_1=$(oc --context cluster1 get infrastructure cluster -o jsonpath='{.status.infrastructureName}')-network
+export network_2=$(oc --context cluster2 get infrastructure cluster -o jsonpath='{.status.infrastructureName}')-network
+export network_3=$(oc --context cluster3 get infrastructure cluster -o jsonpath='{.status.infrastructureName}')-network
 
-# make all the peering requests
-export peering_connection1_2=$(aws --region ${region1} ec2 create-vpc-peering-connection --vpc-id ${vpc_id1} --peer-vpc-id ${vpc_id2} --peer-region ${region2} | jq -r .VpcPeeringConnection.VpcPeeringConnectionId)
-export peering_connection1_3=$(aws --region ${region1} ec2 create-vpc-peering-connection --vpc-id ${vpc_id1} --peer-vpc-id ${vpc_id3} --peer-region ${region3} | jq -r .VpcPeeringConnection.VpcPeeringConnectionId)
-export peering_connection2_3=$(aws --region ${region2} ec2 create-vpc-peering-connection --vpc-id ${vpc_id2} --peer-vpc-id ${vpc_id3} --peer-region ${region3} | jq -r .VpcPeeringConnection.VpcPeeringConnectionId)
+# 1-2
+az network vnet peering create -g ${resource_group} -n vnet_peering1_2 --vnet-name ${vnet1} --remote-vnet ${vnet2} --allow-vnet-access --allow-forwarded-traffic
+az network vnet peering create -g ${resource_group} -n vnet_peering1_2 --vnet-name ${vnet2} --remote-vnet ${vnet1} --allow-vnet-access --allow-forwarded-traffic
 
-# accept peering requests
+# 1-3
+az network vnet peering create -g ${resource_group} -n vnet_peering1_2 --vnet-name ${vnet1} --remote-vnet ${vnet3} --allow-vnet-access --allow-forwarded-traffic
+az network vnet peering create -g ${resource_group} -n vnet_peering1_2 --vnet-name ${vnet3} --remote-vnet ${vnet1} --allow-vnet-access --allow-forwarded-traffic
 
-aws --region ${region2} ec2 accept-vpc-peering-connection --vpc-peering-connection-id ${peering_connection1_2}
-aws --region ${region3} ec2 accept-vpc-peering-connection --vpc-peering-connection-id ${peering_connection1_3}
-aws --region ${region3} ec2 accept-vpc-peering-connection --vpc-peering-connection-id ${peering_connection2_3}
+# 2-3
+az network vnet peering create -g ${resource_group} -n vnet_peering1_2 --vnet-name ${vnet2} --remote-vnet ${vnet3} --allow-vnet-access --allow-forwarded-traffic
+az network vnet peering create -g ${resource_group} -n vnet_peering1_2 --vnet-name ${vnet3} --remote-vnet ${vnet2} --allow-vnet-access --allow-forwarded-traffic
 
-#modify peering requests
+```
 
-aws --region ${region1} ec2 modify-vpc-peering-connection-options --vpc-peering-connection-id ${peering_connection1_2} --requester-peering-connection-options AllowDnsResolutionFromRemoteVpc=true
-aws --region ${region1} ec2 modify-vpc-peering-connection-options --vpc-peering-connection-id ${peering_connection1_3} --requester-peering-connection-options AllowDnsResolutionFromRemoteVpc=true
-aws --region ${region2} ec2 modify-vpc-peering-connection-options --vpc-peering-connection-id ${peering_connection2_3} --requester-peering-connection-options AllowDnsResolutionFromRemoteVpc=true
+Create firewall rules for submariner
 
-# accept peering request modification
+```shell
+export infrastructure_1=$(oc --context cluster1 get infrastructure cluster -o jsonpath='{.status.infrastructureName}')
+export infrastructure_2=$(oc --context cluster2 get infrastructure cluster -o jsonpath='{.status.infrastructureName}')
+export infrastructure_3=$(oc --context cluster3 get infrastructure cluster -o jsonpath='{.status.infrastructureName}')
+gcloud compute firewall-rules create --network ${infrastructure_1}-network --target-tags ${infrastructure_1}-worker --direction Ingress --source-ranges 0.0.0.0/0 --allow udp:500,udp:4500,udp:4800,esp ${infrastructure_1}-submariner-in
+gcloud compute firewall-rules create --network ${infrastructure_2}-network --target-tags ${infrastructure_2}-worker --direction Ingress --source-ranges 0.0.0.0/0 --allow udp:500,udp:4500,udp:4800,esp ${infrastructure_2}-submariner-in
+gcloud compute firewall-rules create --network ${infrastructure_3}-network --target-tags ${infrastructure_3}-worker --direction Ingress --source-ranges 0.0.0.0/0 --allow udp:500,udp:4500,udp:4800,esp ${infrastructure_3}-submariner-in
 
-aws --region ${region2} ec2 accept-vpc-peering-connection --vpc-peering-connection-id ${peering_connection1_2}
-aws --region ${region3} ec2 accept-vpc-peering-connection --vpc-peering-connection-id ${peering_connection1_3}
-aws --region ${region3} ec2 accept-vpc-peering-connection --vpc-peering-connection-id ${peering_connection2_3}
-
-# create routing tables
-
-aws --region ${region1} ec2 create-route --destination-cidr-block ${cluster2_node_cidr} --vpc-peering-connection-id ${peering_connection1_2} --route-table-id ${vpc1_main_route_table_id}
-aws --region ${region2} ec2 create-route --destination-cidr-block ${cluster1_node_cidr} --vpc-peering-connection-id ${peering_connection1_2} --route-table-id ${vpc2_main_route_table_id}
-aws --region ${region1} ec2 create-route --destination-cidr-block ${cluster3_node_cidr} --vpc-peering-connection-id ${peering_connection1_3} --route-table-id ${vpc1_main_route_table_id}
-aws --region ${region3} ec2 create-route --destination-cidr-block ${cluster1_node_cidr} --vpc-peering-connection-id ${peering_connection1_3} --route-table-id ${vpc3_main_route_table_id}
-aws --region ${region2} ec2 create-route --destination-cidr-block ${cluster3_node_cidr} --vpc-peering-connection-id ${peering_connection2_3} --route-table-id ${vpc2_main_route_table_id}
-aws --region ${region3} ec2 create-route --destination-cidr-block ${cluster2_node_cidr} --vpc-peering-connection-id ${peering_connection2_3} --route-table-id ${vpc3_main_route_table_id}
+gcloud compute firewall-rules create --network ${infrastructure_1}-network --direction OUT --destination-ranges 0.0.0.0/0 --allow udp:500,udp:4500,udp:4800,esp ${infrastructure_1}-submariner-out
+gcloud compute firewall-rules create --network ${infrastructure_2}-network --direction OUT --destination-ranges 0.0.0.0/0 --allow udp:500,udp:4500,udp:4800,esp ${infrastructure_2}-submariner-out
+gcloud compute firewall-rules create --network ${infrastructure_3}-network --direction OUT --destination-ranges 0.0.0.0/0 --allow udp:500,udp:4500,udp:4800,esp ${infrastructure_3}-submariner-out
 ```
 
 ### verify submariner installation
@@ -319,8 +305,8 @@ done
 ### Deploy submariner via CLI
 
 ```shell
-curl -Ls https://get.submariner.io | VERSION=0.8.1 bash
-subctl deploy-broker --kubecontext ${control_cluster} --service-discovery
+curl -Ls https://get.submariner.io | VERSION=devel bash
+subctl deploy-broker --service-discovery
 mv broker-info.subm /tmp/broker-info.subm
 for context in ${cluster1} ${cluster2} ${cluster3}; do
   subctl join --kubecontext ${context} /tmp/broker-info.subm --no-label --clusterid $(echo ${context} | cut -d "/" -f2 | cut -d "-" -f2) --cable-driver libreswan
@@ -436,5 +422,12 @@ for cluster in cluster1 cluster2 cluster3; do
   mkdir -p ./${cluster}
   cp ${cluster}-metadata.json ./${cluster}/metadata.json
   openshift-install  destroy cluster --log-level=debug --dir ./${cluster}
+done
+```
+
+```shell
+for cluster in cluster1 cluster2 cluster3; do
+  helm uninstall ${cluster} -n ${cluster}
+  oc delete project ${cluster}
 done
 ```

@@ -22,10 +22,10 @@ vault:
       cluster: ${cluster}
     extraSecretEnvironmentVars:
       - envName: AWS_SECRET_ACCESS_KEY
-        secretName: vault-aws-kms-credentials
+        secretName: kms-cloud-credentials
         secretKey: aws_secret_access_key
       - envName: AWS_ACCESS_KEY_ID
-        secretName: vault-aws-kms-credentials
+        secretName: kms-cloud-credentials
         secretKey: aws_access_key_id      
     extraVolumes:
       - type: 'secret'

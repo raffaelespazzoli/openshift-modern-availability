@@ -41,15 +41,15 @@ data:
     port=9092
 
     # the number of processor threads the socket server uses. Defaults to the number of cores on the machine
-    num.threads=4
+    num.threads=8
 
     # The number of threads handling network requests
-    num.network.threads=4
+    num.network.threads=16
     
     # The number of threads doing disk I/O
-    num.io.threads=8
-    num.replica.fetchers=4
-    num.recovery.threads.per.data.dir=4
+    num.io.threads=16
+    num.replica.fetchers=16
+    num.recovery.threads.per.data.dir=16
 
     # the directory in which to store log files
     log.dirs=/data1/logs,/data2/logs,/data3/logs
@@ -59,10 +59,10 @@ data:
 
     # using bandwidth-delay approach (https://en.wikipedia.org/wiki/Bandwidth-delay_product): 
     # 250MBps (as measured by subctl benchmark throughtput) and 70ms -> 250 * 10^6 b/s * 7 *10^-3 s = 1750*10^3 =~ 1.5MB 
-    socket.send.buffer.bytes=1572864
+    socket.send.buffer.bytes={{ div (mul .Values.latency .Values.bandwidth) 1000 }}
     # the receive buffer used by the socket server
     #socket.receive.buffer=1048576
-    socket.receive.buffer.bytes=1572864
+    socket.receive.buffer.bytes={{ div (mul .Values.latency .Values.bandwidth) 1000 }}
 
 
     # the maximum size of a log segment
@@ -76,6 +76,8 @@ data:
 
     #the number of messages to accept without flushing the log to disk
     log.flush.interval=1
+
+    auto.create.topics.enable=false
 
     #set the following properties to use zookeeper
 
@@ -115,7 +117,7 @@ data:
 
 
     default.replication.factor=3
-    num.partitions=9
+    #num.partitions=9
 
     #ssl.client.auth=required
     ssl.keystore.location=/certs/keystore.jks

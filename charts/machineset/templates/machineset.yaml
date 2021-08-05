@@ -1,38 +1,69 @@
-{{- $values:= . }}
-{{- range .Values.zones }}
-{{- $zone:= . }}
-{{- $currentMachine:= {} }}
-{{- range lookup "machine.openshift.io/v1beta1" "MachineSet" "openshift-machine-api" "" }}
-{{- if .spec.template.spec.providerSpec.placement.availabilityZone == $zone }}
-{{- $currentMachine= .}}
-{{- end }}
-{{- end }}
 apiVersion: machine.openshift.io/v1beta1
 kind: MachineSet
+metadata:
   labels:
-    hive.openshift.io/machine-pool: worker
-    machine.openshift.io/cluster-api-cluster: cluster1-acm-aws-clus-nhgxm
-  name: cluster1-acm-aws-clus-nhgxm-worker-us-east-1a
+    machine.openshift.io/cluster-api-cluster: {{ .Values.clusterName }}
+  name: {{ .Values.clusterName }}-{{ .Values.machinePurpose }}-{{ .Values.zone }}
   namespace: openshift-machine-api
 spec:
-  replicas: 1
+  replicas: {{ .Values.replicas }}
   selector:
     matchLabels:
-      machine.openshift.io/cluster-api-cluster: cluster1-acm-aws-clus-nhgxm
-      machine.openshift.io/cluster-api-machineset: cluster1-acm-aws-clus-nhgxm-worker-us-east-1a
+      machine.openshift.io/cluster-api-cluster: {{ .Values.clusterName }}
+      machine.openshift.io/cluster-api-machineset: {{ .Values.clusterName }}-{{ .Values.machinePurpose }}-{{ .Values.zone }}
   template:
     metadata:
       labels:
-        machine.openshift.io/cluster-api-cluster: cluster1-acm-aws-clus-nhgxm
+        machine.openshift.io/cluster-api-cluster: {{ .Values.clusterName }}
         machine.openshift.io/cluster-api-machine-role: worker
-        machine.openshift.io/cluster-api-machine-type: worker
-        machine.openshift.io/cluster-api-machineset: cluster1-acm-aws-clus-nhgxm-worker-us-east-1a
+        machine.openshift.io/cluster-api-machine-type: {{ .Values.machinePurpose }}
+        machine.openshift.io/cluster-api-machineset: {{ .Values.clusterName }}-{{ .Values.machinePurpose }}-{{ .Values.zone }}
     spec:
-      metadata: {}
+      metadata: 
+        labels:
+          workload: {{ .Values.machinePurpose }}
+      taints:
+      - effect: NoSchedule
+        key: workload
+        value: {{ .Values.machinePurpose }}    
       providerSpec:
+{{ if eq .Values.infrastructure "gcp" }}      
+        value:
+          machineType: {{ .Values.gcp.machineType }}
+          userDataSecret:
+            name: worker-user-data
+          deletionProtection: false
+          networkInterfaces:
+            - network: {{ .Values.clusterName }}-network
+              subnetwork: {{ .Values.clusterName }}-worker-subnet
+          credentialsSecret:
+            name: gcp-cloud-credentials
+          zone: {{ .Values.zone }}
+          canIPForward: false
+          metadata:
+            creationTimestamp: null
+          projectID: {{ .Values.gcp.projectID }}
+          region: {{ .Values.region }}
+          kind: GCPMachineProviderSpec
+          disks:
+            - autoDelete: true
+              boot: true
+              image: {{ .Values.gcp.image }}
+              labels: null
+              sizeGb: 128
+              type: pd-ssd
+          tags:
+            - {{ .Values.clusterName }}-worker
+          serviceAccounts:
+            - email: {{ .Values.clusterName }}-w@gc-acm-leads.iam.gserviceaccount.com
+              scopes:
+                - 'https://www.googleapis.com/auth/cloud-platform'
+          apiVersion: gcpprovider.openshift.io/v1beta1
+{{ end }}
+{{ if eq .Values.infrastructure "aws" }}      
         value:
           ami:
-            id: ami-08f17f5bd2210c9fa
+            id: {{ .Values.aws.ami }}
           apiVersion: awsproviderconfig.openshift.io/v1beta1
           blockDevices:
           - ebs:
@@ -46,26 +77,27 @@ spec:
             name: aws-cloud-credentials
           deviceIndex: 0
           iamInstanceProfile:
-            id: cluster1-acm-aws-clus-nhgxm-worker-profile
-          instanceType: m5.large
+            id: {{ .Values.clusterName }}-worker-profile
+          instanceType: {{ .Values.aws.instanceType }}
           kind: AWSMachineProviderConfig
           metadata:
             creationTimestamp: null
           placement:
-            availabilityZone: us-east-1a
-            region: us-east-1
+            availabilityZone: {{ .Values.zone }}
+            region: {{ .Values.region }}
           securityGroups:
           - filters:
             - name: tag:Name
               values:
-              - cluster1-acm-aws-clus-nhgxm-worker-sg
+              - {{ .Values.clusterName }}-worker-sg
           subnet:
             filters:
             - name: tag:Name
               values:
-              - cluster1-acm-aws-clus-nhgxm-private-us-east-1a
+              - {{ .Values.clusterName }}-private-{{ .Values.zone }}
           tags:
-          - name: kubernetes.io/cluster/cluster1-acm-aws-clus-nhgxm
+          - name: kubernetes.io/cluster/{{ .Values.clusterName }}
             value: owned
           userDataSecret:
             name: worker-user-data
+{{ end }}            

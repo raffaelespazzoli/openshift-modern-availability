@@ -1,13 +1,13 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: kafka-producer
+  name: kafka-consumer
 spec:
-  parallelism: ${producer_number}
+  parallelism: ${consumer_number}
   template:
     metadata:
       label:
-        app: kafka-producer
+        app: kafka-consumer
     spec:
       affinity:
         podAntiAffinity:
@@ -19,15 +19,23 @@ spec:
                 - key: app
                   operator: In
                   values:
-                  - kafka-producer
+                  - kafka-consumer
               topologyKey: topology.kubernetes.io/host      
       containers:
       - imagePullPolicy: Always                                          
         image: bitnami/kafka:2.8.0
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name        
         command:
         - /bin/bash
-        - -ecx
-        - /opt/bitnami/kafka/bin/kafka-producer-perf-test.sh --producer.config /config/producer.properties --topic test-topic --num-records ${record_number} --print-metrics --throughput -1 --record-size ${record_size} --producer-props batch.size=${batch_size}
+        - -ecx 
+        - | 
+          cp /config/consumer.properties /tmp/consumer.properties
+          echo group.instance.id=$${empty_variable}{POD_NAME} >> /tmp/consumer.properties
+          /opt/bitnami/kafka/bin/kafka-consumer-perf-test.sh --bootstrap-server kafka.kafka.svc.cluster.local:9093 --consumer.config /tmp/consumer.properties --topic test-topic --messages ${record_number} --group test-consumer --timeout 20000  
         name: tool
         volumeMounts:
         - mountPath: /certs
