@@ -3,11 +3,23 @@ baseDomain: ${base_domain}
 sshKey: |
 ${ssh_key}  
 sshPubKey: ${ssh_pub_key}
-aws_id: ${aws_id}
-aws_key: ${aws_key}
-docker_pull_secret: 
+aws:
+  id: ${aws_id}
+  key: ${aws_key}
+azr:
+  baseDomainResourceGroupName: ${base_domain_resource_group_name}
+  sa_json: 
+${azr_sa_json}
+gcp:
+  sa_json: |
+${gcp_sa_json}
+  projectID: ${gcp_project_id}
+docker_pull_secret:
   ${pull_secret}
 cluster_network_cidr: ${network_cidr}
 service_network_cidr: ${service_cidr}
 node_cidr: ${node_cidr}
 clusterReleaseImage: ${cluster_release_image}
+infrastructure: ${infrastructure}
+submariner:
+  enableOperator: false

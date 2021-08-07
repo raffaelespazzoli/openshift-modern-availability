@@ -77,23 +77,6 @@ data:
     #the number of messages to accept without flushing the log to disk
     log.flush.interval=1
 
-    auto.create.topics.enable=false
-
-    #set the following properties to use zookeeper
-
-    # enable connecting to zookeeper
-    enable.zookeeper=true
-
-    # zk connection string
-    # comma separated host:port pairs, each corresponding to a zk
-    # server. e.g. "127.0.0.1:3000,127.0.0.1:3001,127.0.0.1:3002"
-    zookeeper.connect=zookeeper-client.kafka.svc.clusterset.local:2181
-    zookeeper.ssl.client.enable=true
-    zookeeper.clientCnxnSocket=org.apache.zookeeper.ClientCnxnSocketNetty
-
-    # timeout in ms for connecting to zookeeper
-    zk.connectiontimeout.ms=1000000
-
     # time based topic flush intervals in ms
     #topic.flush.intervals.ms=topic:1000
 
@@ -101,10 +84,7 @@ data:
     log.default.flush.interval.ms=2000
 
     # the interval (in ms) at which logs are checked to see if they need to be flushed to disk.
-    log.default.flush.scheduler.interval.ms=1000
-
-    # topic partition count map
-    # topic.partition.count.map=topic1:3, topic2:4  
+    log.default.flush.scheduler.interval.ms=1000 
 
     listeners=BROKER://:9091,CONTROLLER://:9092,CLIENT://:9093
     listener.security.protocol.map=BROKER:SSL,CONTROLLER:SSL,CLIENT:SSL
@@ -115,9 +95,26 @@ data:
     broker.rack={{ .Values.cluster }}
     ssl.endpoint.identification.algorithm=HTTPS
 
-
+    auto.create.topics.enable=false
     default.replication.factor=3
-    #num.partitions=9
+    num.partitions=9
+    min.insync.replicas=2
+    auto.leader.rebalance.enable=true
+
+    offsets.topic.num.partitions=9
+    offsets.topic.replication.factor=3
+    transaction.state.log.num.partitions=9
+    transaction.state.log.replication.factor=3
+    transaction.state.log.min.isr=2
+
+    replica.socket.receive.buffer.bytes={{ div (mul .Values.latency .Values.bandwidth) 1000 }}
+    replica.socket.receive.buffer.bytes={{ div (mul .Values.latency .Values.bandwidth) 1000 }}
+
+    replica.lag.time.max.ms=5000
+    group.initial.rebalance.delay.ms=3000
+
+    #KRaft section
+    #process.roles=broker,controller
 
     #ssl.client.auth=required
     ssl.keystore.location=/certs/keystore.jks
@@ -126,6 +123,21 @@ data:
     ssl.truststore.location=/certs/truststore.jks
     ssl.truststore.password=changeit
     ssl.truststore.type=JKS
+
+    #set the following properties to use zookeeper
+    # enable connecting to zookeeper
+    enable.zookeeper=true
+
+    # zk connection string
+    # comma separated host:port pairs, each corresponding to a zk
+    # server. e.g. "127.0.0.1:3000,127.0.0.1:3001,127.0.0.1:3002"
+    zookeeper.connect=zookeeper-0.zookeeper.kafka.svc.cluster.local:2181,zookeeper-1.zookeeper.kafka.svc.cluster.local:2181
+    zookeeper.ssl.client.enable=true
+    zookeeper.clientCnxnSocket=org.apache.zookeeper.ClientCnxnSocketNetty
+    
+    # timeout in ms for connecting to zookeeper
+    zk.connectiontimeout.ms=1000000
+
     zookeeper.ssl.keystore.location=/certs/keystore.jks
     zookeeper.ssl.keystore.password=changeit
     zookeeper.ssl.keystore.type=JKS

@@ -1,0 +1,73 @@
+apiVersion: hive.openshift.io/v1
+kind: MachinePool
+metadata:
+  name: {{ .Release.Namespace }}-worker
+spec:
+  clusterDeploymentRef:
+    name: {{ .Release.Namespace }}
+  name: worker
+  platform:
+    {{ if eq .Values.infrastructure "aws"}}
+    aws:
+      rootVolume:
+        iops: 100
+        size: 100
+        type: gp2
+      type: m5.large
+    {{ end }}
+    {{ if eq .Values.infrastructure "azr"}}
+    azure:
+      osDisk:
+        diskSizeGB: 128
+      type: Standard_D2s_v3
+      zones:
+      - "1"
+      - "2"
+      - "3"
+    {{ end }}
+    {{ if eq .Values.infrastructure "gcp"}}
+    gcp:
+      type: n1-standard-4
+    {{ end }}  
+  replicas: 3
+{{ if .Values.submariner.enableGateways }}
+---
+apiVersion: hive.openshift.io/v1
+kind: MachinePool
+metadata:
+  name: {{ .Release.Namespace }}-submariner-gateway
+spec:
+  clusterDeploymentRef:
+    name: {{ .Release.Namespace }}
+  name: submariner-gateway
+  platform:
+    {{ if eq .Values.infrastructure "aws"}}
+    aws:
+      rootVolume:
+        iops: 100
+        size: 100
+        type: gp2
+      type: {{ .Values.submariner.aws.machineType }}
+    {{ end }}
+    {{ if eq .Values.infrastructure "azure"}}
+    azure:
+      osDisk:
+        diskSizeGB: 128
+      type: {{ .Values.submariner.azr.machineType }}
+      zones:
+      - "1"
+      - "2"
+      - "3"
+    {{ end }}
+    {{ if eq .Values.infrastructure "gcp"}}
+    gcp:
+      type: {{ .Values.submariner.gcp.machineType }}
+    {{ end }}  
+  replicas: 1  
+  labels:
+    submariner.io/gateway: 'true'
+  taints:
+  - key: "submariner.io/gateway"
+    value: 'true'
+    effect: NoSchedule
+{{ end }}      

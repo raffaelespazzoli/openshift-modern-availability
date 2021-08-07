@@ -1,0 +1,51 @@
+apiVersion: hive.openshift.io/v1
+kind: ClusterDeployment
+metadata:
+  name: {{ .Release.Name }}
+  labels:
+  {{ if eq .Values.infrastructure "aws"}}
+    cloud: 'Amazon'
+  {{ end }}
+  {{ if eq .Values.infrastructure "azr"}}
+    cloud: 'Azure'
+  {{ end }}
+  {{ if eq .Values.infrastructure "gcp"}}
+    cloud: 'Google'
+  {{ end }}
+    region: {{ .Values.region }}
+    vendor: 'OpenShift'
+spec:
+  baseDomain: {{ .Values.baseDomain }}
+  clusterName: {{ .Release.Name }}
+  controlPlaneConfig:
+    servingCertificates: {}
+  installed: false
+  platform:
+    {{ if eq .Values.infrastructure "aws"}}
+    aws:
+      credentialsSecretRef:
+        name: {{ .Release.Name }}-credentials
+      region: {{ .Values.region }}
+    {{ end }}
+    {{ if eq .Values.infrastructure "azure"}}
+    azure:
+      baseDomainResourceGroupName: {{ .Values.baseDomainResourceGroupName }}
+      credentialsSecretRef:
+        name: {{ .Release.Name }}-credentials
+      region: {{ .Values.region }}
+    {{ end }}
+    {{ if eq .Values.infrastructure "gcp"}}
+    gcp:
+      credentialsSecretRef:
+        name: {{ .Release.Name }}-credentials
+      region: {{ .Values.region }}
+    {{ end }}  
+  provisioning:
+    installConfigSecretRef:
+      name: {{ .Release.Name }}-install-config
+    sshPrivateKeySecretRef:
+      name: {{ .Release.Name }}-ssh-private-key
+    imageSetRef:
+      name: {{ .Release.Name }}
+  pullSecretRef:
+    name: {{ .Release.Name }}-docker-pull-secret  

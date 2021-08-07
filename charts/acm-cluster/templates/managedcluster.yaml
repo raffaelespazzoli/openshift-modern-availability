@@ -1,0 +1,23 @@
+apiVersion: cluster.open-cluster-management.io/v1
+kind: ManagedCluster
+metadata:
+  labels:
+    {{ if eq .Values.infrastructure "aws"}}
+    cloud: 'Amazon'
+    {{ end }}
+    {{ if eq .Values.infrastructure "azure"}}
+    cloud: 'Azure'
+    {{ end }}
+    {{ if eq .Values.infrastructure "gcp"}}
+    cloud: 'Google'
+    {{ end }}
+    name: {{ .Release.Namespace }}
+    vendor: OpenShift
+    cluster.open-cluster-management.io/clusterset: gdw
+{{ if .Values.submariner.enableOperator }}    
+    cluster.open-cluster-management.io/submariner-agent: "true"
+{{ end }}    
+    region: {{ .Values.region }}
+  name: {{ .Release.Namespace }}
+spec:
+  hubAcceptsClient: true

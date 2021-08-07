@@ -1,0 +1,114 @@
+# Default values for acm-cluster.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+## mandatory fields
+# region: ""
+# baseDomain: ""
+# sshKey: ""
+# sshPubKey: ""
+# docker_pull_secret: ""
+# cluster_network_cidr: ""
+# service_network_cidr: ""
+# clusterReleaseImage: ""
+# infrastructure: ["aws"|"azure"|"gcp"]
+
+## cloud dependent fields (one of them required)
+# aws:
+#   id: ""
+#   key: ""
+# azr:
+#   baseDomainResourceGroupName: ""
+#   sa_json: |
+#   "" # must be properly indented
+# gcp:
+#   gcp_sa_json: 
+#   "" # must be properly indented
+#   gcp_projectID: ""
+
+install_config:
+  apiVersion: v1
+  metadata:
+    #added by template
+    name: ""
+  #added by template  
+  baseDomain: ""
+  controlPlane:
+    hyperthreading: Enabled
+    name: master
+    replicas: 3
+    platform: {}
+      ## added by template
+  compute:
+  - hyperthreading: Enabled
+    name: worker
+    replicas: 3
+    platform: {}
+      ## added by template 
+  networking:
+    clusterNetwork:
+      # added by template
+    - cidr: ""
+      hostPrefix: 23
+    #machineCIDR: ${node_cidr}
+    networkType: OpenShiftSDN
+    serviceNetwork:
+      # added by template
+    - ""
+  platform:
+    gcp:
+      # added by template
+      projectID: ""
+      # added by template
+      region: ""
+  pullSecret: "" # skip, hive will inject based on it's secrets
+  # added by template
+  sshKey: ""
+
+submariner:
+  enableOperator: true
+  enableGateways: true
+  aws:
+    machineType: m5n.xlarge
+  gcp:
+    machineType: n2-standard-2
+  azr:
+    machineType: Standard_D2s_v3
+
+hive:
+  aws:
+    controlPlane:
+      rootVolume:
+        iops: 4000
+        size: 100
+        type: io1
+      type: m5.xlarge          
+    compute:
+      rootVolume:
+        iops: 2000
+        size: 100
+        type: io1
+      type: m5.large
+  azr:
+    controlPlane:
+      osDisk:
+        diskSizeGB: 128
+      type:  Standard_D4s_v3
+    compute:
+      type:  Standard_D2s_v3
+      osDisk:
+        diskSizeGB: 128
+      zones:
+      - "1"
+      - "2"
+      - "3"
+  gcp:
+    controlPlane:
+      type: n1-standard-4
+    compute:
+      type: n1-standard-4  
+
+
+
+
+

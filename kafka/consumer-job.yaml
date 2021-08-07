@@ -35,7 +35,7 @@ spec:
         - | 
           cp /config/consumer.properties /tmp/consumer.properties
           echo group.instance.id=$${empty_variable}{POD_NAME} >> /tmp/consumer.properties
-          /opt/bitnami/kafka/bin/kafka-consumer-perf-test.sh --bootstrap-server kafka.kafka.svc.cluster.local:9093 --consumer.config /tmp/consumer.properties --topic test-topic --messages ${record_number} --group test-consumer --timeout 20000  
+          /opt/bitnami/kafka/bin/kafka-consumer-perf-test.sh --bootstrap-server kafka.kafka.svc.cluster.local:9093 --consumer.config /tmp/consumer.properties --topic test-topic --messages ${record_number} --group test-consumer --timeout 60000 --show-detailed-stats 
         name: tool
         volumeMounts:
         - mountPath: /certs

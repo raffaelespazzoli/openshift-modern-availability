@@ -6,7 +6,7 @@ In this step we are going to use Vault as our secret manager and we are going to
 
 ## Deploy Vault
 
-### Create vault root keys (rootca and KMS key)
+### Create vault root keys (rootca and google KMS key)
 
 ```shell
 gcloud kms keyrings create "acm" --location "global"

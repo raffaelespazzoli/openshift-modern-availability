@@ -1,0 +1,8 @@
+clusterName: ${cluster_name}
+machinePurpose: ${machine_purpose}
+zone: ${zone}
+region: ${region}
+infrastructure: ${infrastructure}
+aws:
+  ami: ${ami}
+  instanceType: ${instance_type} 

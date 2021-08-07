@@ -1,36 +1,61 @@
 # Kafka multicluster
 
-## Deploy local storage operator
-
-```shell
-for context in ${cluster1} ${cluster2} ${cluster3}; do
-  oc --context ${context} adm new-project openshift-local-storage
-  export OC_VERSION=$(oc --context ${context} version -o yaml | grep openshiftVersion | grep -o '[0-9]*[.][0-9]*' | head -1)
-  envsubst < ./local-storage-operator/operator.yaml | oc --context ${context} apply -f -
-done
-```
-
 ## Provision adequate nodes
 
 ```shell
+export infrastructure=$(oc get infrastructure cluster -o jsonpath='{.spec.platformSpec.type}'| tr '[:upper:]' '[:lower:]')
+export machine_purpose=kafka
+case ${infrastructure} in
+  aws)
+    export instance_type="m5n.2xlarge"
+    export region_suffixes=("a" "b" "c")
+  ;;
+  gcp)
+    export machine_type="n2-standard-8"
+    export gcp_project_id=$(cat ~/.gcp/osServiceAccount.json | jq -r .project_id)
+    export region_suffixes=("-a" "-b" "-c")
+  ;;
+  azure)
+    export machine_type="Standard_D8_v3"
+  ;;
+esac
 for context in ${cluster1} ${cluster2} ${cluster3}; do
+  for machineset in $(oc --context ${context} get machineset -n openshift-machine-api | grep kafka | awk '{print $1}'); do 
+    oc --context ${context} scale machineset ${machineset} -n openshift-machine-api --replicas 0
+  done  
   export cluster_name=$(oc --context ${context} get infrastructure cluster -o jsonpath='{.status.infrastructureName}')
-  export region=$(oc --context ${context} get infrastructure cluster -o jsonpath='{.status.platformStatus.aws.region}')
-  export ami=$(oc --context ${context} get machineset -n openshift-machine-api -o jsonpath='{.items[0].spec.template.spec.providerSpec.value.ami.id}')
-  export machine_type=kafka
-  export instance_type=d3.xlarge
-  for z in a b c; do
+  export region=$(oc --context ${context} get infrastructure cluster -o jsonpath='{.status.platformStatus.gcp.region}')
+  export image=$(oc --context ${context} get machineset -n openshift-machine-api -o jsonpath='{.items[0].spec.template.spec.providerSpec.value.disks[0].image}')
+  for z in ${region_suffixes[@]}; do
     export zone=${region}${z}
-    oc --context ${context} scale machineset -n openshift-machine-api $(envsubst < ./cockroachdb/machineset.yaml | yq -r .metadata.name) --replicas 0 
-    envsubst < ./cockroachdb/machineset.yaml | oc --context ${context} apply -f -
+    export ami=$(oc --context ${context} get machineset -n openshift-machine-api -o jsonpath='{.items[0].spec.template.spec.providerSpec.value.ami.id}')
+    envsubst < ./kafka/machineset-values-${infrastructure}.templ.yaml > /tmp/values.yaml
+    helm --kube-context ${context} upgrade kafka-machine-${zone} ./charts/machineset --atomic -i -f /tmp/values.yaml
   done
-  oc --context ${context} apply -f ./local-storage-operator/local-storage.yaml
+  for machineset in $(oc --context ${context} get machineset -n openshift-machine-api | grep kafka | awk '{print $1}'); do 
+    oc --context ${context} scale machineset ${machineset} -n openshift-machine-api --replicas 1
+  done
 done
 ```
 
 ## Deploy Kafka multicluster
 
 ```shell
+export infrastructure=$(oc get infrastructure cluster -o jsonpath='{.spec.platformSpec.type}'| tr '[:upper:]' '[:lower:]')
+case ${infrastructure} in
+  aws)
+    export latency="70" #70ms
+    export bandwidth="250000000" #250 MBps
+  ;;
+  gcp)
+    export latency="70" #70ms
+    export bandwidth="3500000000" #3.5 GBps
+  ;;
+  azure)
+    export latency="70" #70ms
+    export bandwidth="250000000" #250 MBps
+  ;;
+esac
 export cluster_base_domain=$(oc --context ${control_cluster} get dns cluster -o jsonpath='{.spec.baseDomain}')
 export global_base_domain=global.${cluster_base_domain#*.}
 for context in ${cluster1} ${cluster2} ${cluster3}; do
@@ -53,6 +78,24 @@ for context in ${cluster1} ${cluster2} ${cluster3}; do
   envsubst < ./kafka/akhq-values.yaml > /tmp/values.yaml
   helm --kube-context ${context} upgrade --install akhq akhq/akhq --create-namespace -n kafka -f /tmp/values.yaml
 done
+```
+
+if on gcp, define the global endpoint
+
+```shell
+IPs=""
+for cluster in ${cluster1} ${cluster2} ${cluster3}; do
+  IP=$(oc --context ${cluster} get svc router-default -n openshift-ingress -o jsonpath='{.status.loadBalancer.ingress[].ip}')
+  echo $IP
+  IPs+=${IP},
+done
+IPs="${IPs%,}"
+export cluster_base_domain=$(oc --context ${control_cluster} get dns cluster -o jsonpath='{.spec.baseDomain}')
+export base_domain=${cluster_base_domain#*.}
+export global_base_domain=global.${cluster_base_domain#*.}
+export global_base_domain_no_dots=$(echo ${global_base_domain} | tr '.' '-')
+gcloud dns record-sets delete akhq.global.demo.gcp.red-chesterfield.com --type=A --zone=${global_base_domain_no_dots}
+gcloud dns record-sets create akhq.global.demo.gcp.red-chesterfield.com --rrdatas=${IPs} --type=A --ttl=60 --zone=${global_base_domain_no_dots}
 ```
 
 Enable monitoring
@@ -85,7 +128,8 @@ create a topic
 ```shell
 export tool_pod=$(oc --context cluster1 get pod -n kafka | grep tool | awk '{print $1}')
 oc --context cluster1 exec -n kafka ${tool_pod} -- /opt/bitnami/kafka/bin/kafka-topics.sh --bootstrap-server kafka.kafka.svc.cluster.local:9093 --delete --topic test-topic --if-exists --command-config /config/admin-client.properties
-oc --context cluster1 exec -n kafka ${tool_pod} -- /opt/bitnami/kafka/bin/kafka-topics.sh --bootstrap-server kafka.kafka.svc.cluster.local:9093 --create --topic test-topic --partitions 9 --replication-factor=3 --if-not-exists --command-config /config/admin-client.properties --config retention.ms=28800000 --config min.insync.replicas=2
+oc --context cluster1 exec -n kafka ${tool_pod} -- /opt/bitnami/kafka/bin/kafka-topics.sh --bootstrap-server kafka.kafka.svc.cluster.local:9093 --create --topic test-topic --partitions 72 --replication-factor 3 --if-not-exists --command-config /config/admin-client.properties --config retention.ms=28800000 --config min.insync.replicas=2
+oc --context cluster1 exec -n kafka ${tool_pod} -- /opt/bitnami/kafka/bin/kafka-topics.sh --bootstrap-server kafka.kafka.svc.cluster.local:9093 --describe --topic test-topic --command-config /config/admin-client.properties
 ```
 
 ### Single producer/consumer runs
@@ -106,23 +150,81 @@ oc --context cluster1 exec -n kafka ${tool_pod} -- /opt/bitnami/kafka/bin/kafka-
 
 ### Multiple producer/consumer runs
 
+producer runs
+
 ```shell
-export producer_number=1
+export producer_number=6
 export record_number=5000000
-export record_size=1024
+export record_size=1024 #1KB
+export batch_size=131072 #128KB
 for context in ${cluster1} ${cluster2} ${cluster3}; do
   oc --context ${context} delete job kafka-producer -n kafka
   envsubst < ./kafka/producer-job.yaml | oc --context ${context} apply -f - -n kafka
 done
 ```
 
+consumer runs (ensure there are messages available or that producers are running)
+
+```shell
+export consumer_number=6
+export record_number=5000000
+for context in ${cluster1} ${cluster2} ${cluster3}; do
+  export cluster=${context}
+  oc --context ${context} delete job kafka-consumer -n kafka
+  envsubst < ./kafka/consumer-job.yaml | oc --context ${context} apply -f - -n kafka
+done
+```
+
+## Disaster simulation
+
+run the producers and consumers with a large number of messages, this should make them last a while
+
+```shell
+export producer_number=3
+export consumer_number=3
+export record_number=100000000
+export record_size=1024 #1KB
+export batch_size=131072 #128KB
+for context in ${cluster1} ${cluster2} ${cluster3}; do
+  export cluster=${context}
+  oc --context ${context} delete job kafka-consumer -n kafka
+  oc --context ${context} delete job kafka-producer -n kafka
+  envsubst < ./kafka/producer-job.yaml | oc --context ${context} apply -f - -n kafka
+  envsubst < ./kafka/consumer-job.yaml | oc --context ${context} apply -f - -n kafka
+done
+```
+
+Isolate us-west4 region
+
+```shell
+export gcp_project_id=$(cat ~/.gcp/osServiceAccount.json | jq -r .project_id)
+export infrastructure_3=$(oc --context cluster3 get infrastructure cluster -o jsonpath='{.status.infrastructureName}')
+gcloud compute --project=${gcp_project_id} firewall-rules create deny-all-egress --direction=EGRESS --priority=0 --network=${infrastructure_3}-network --action=DENY --rules=all --destination-ranges=0.0.0.0/0 --target-tags=${infrastructure_3}-worker,${infrastructure_3}-master
+gcloud compute --project=${gcp_project_id} firewall-rules create deny-all-ingress --direction=INGRESS --priority=0 --network=${infrastructure_3}-network --action=DENY --rules=all --source-ranges=0.0.0.0/0 --target-tags=${infrastructure_3}-worker,${infrastructure_3}-master
+```
+
+observe the behavior
+
+Reinstate traffic
+
+```shell
+gcloud compute --project=${gcp_project_id} firewall-rules delete deny-all-egress --quiet
+gcloud compute --project=${gcp_project_id} firewall-rules delete deny-all-ingress --quiet
+```
+
 ## Troubleshoot
+
+check zookeeper status:
+
+```shell
+oc --context cluster1 exec -n kafka zookeeper-0 -- /bin/bash -ecx 'CLIENT_JVMFLAGS="-Dzookeeper.clientCnxnSocket=org.apache.zookeeper.ClientCnxnSocketNetty -Dzookeeper.ssl.trustStore.location=/certs/truststore.jks -Dzookeeper.ssl.trustStore.password=changeit -Dzookeeper.ssl.keyStore.location=/certs/keystore.jks -Dzookeeper.ssl.keyStore.password=changeit -Dzookeeper.client.secure=true -Dzookeeper.ssl.hostnameVerification=false" ./bin/zkServer.sh status /conf/zoo.cfg'
+```
 
 restart pods
 
 ```shell
 for context in ${cluster1} ${cluster2} ${cluster3}; do
- oc --context ${context} rollout restart statefulset -n kafka
+ oc --context ${context} rollout restart statefulset -n kafka 
 done
 ```
 
@@ -154,21 +256,3 @@ for context in ${cluster1} ${cluster2} ${cluster3}; do
   oc --context ${context} delete pvc --all -n kafka
 done
 ```
-
-
-Plan
-run test with new config. 
-
-additional optimization
-noatime, largeio in mounting the volume
-
-no sense in trying to push performance more.
-
-Test consumer
-
-Test producer and consumer together
-
-Run and disaster 
-
-Write the article.
-

@@ -1,0 +1,11 @@
+{{ if .Values.submariner.enableOperator }}
+apiVersion: submarineraddon.open-cluster-management.io/v1alpha1
+kind: SubmarinerConfig
+metadata:
+  name: subconfig
+spec:
+  credentialsSecret:
+     name: {{ .Release.Name }}-credentials
+  subscriptionConfig:
+    startingCSV: submariner.v0.8.1    
+{{ end }}

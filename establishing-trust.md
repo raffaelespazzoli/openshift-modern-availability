@@ -6,7 +6,7 @@ In this step we are going to use Vault as our secret manager and we are going to
 
 ## Deploy Vault
 
-### Create vault root keys (rootca and KMS key)
+### Create vault root keys (rootca and aws KMS key)
 
 ```shell
 export region=$(oc --context ${control_cluster} get infrastructure cluster -o jsonpath='{.status.platformStatus.aws.region}')
@@ -14,6 +14,15 @@ export key_id=$(aws --region ${region} kms create-key --description "used by vau
 aws --region ${region} kms tag-resource --key-id ${key_id} --tags TagKey=name,TagValue=vault-key
 oc --context ${control_cluster} new-project vault
 oc --context ${control_cluster} create secret generic vault-kms -n vault --from-literal=key_id=${key_id}
+oc --context ${control_cluster} apply -f ./vault/vault-control-cluster-certs.yaml -n vault
+```
+
+### Create vault root keys (rootca and google KMS key)
+
+```shell
+gcloud kms keyrings create "acm" --location "global"
+gcloud kms keys create "vault" --location "global" --keyring "acm" --purpose "encryption"
+oc --context ${control_cluster} new-project vault
 oc --context ${control_cluster} apply -f ./vault/vault-control-cluster-certs.yaml -n vault
 ```
 
@@ -38,21 +47,33 @@ done
 ```shell
 export rootca_crt=$(oc --context ${control_cluster} get secret rootca -n vault -o jsonpath='{.data.tls\.crt}')
 export rootca_key=$(oc --context ${control_cluster} get secret rootca -n vault -o jsonpath='{.data.tls\.key}')
-export key_id=$(oc --context ${control_cluster} get secret vault-kms -n vault -o jsonpath='{.data.key_id}' | base64 -d )
-export region=$(oc --context ${control_cluster} get infrastructure cluster -o jsonpath='{.status.platformStatus.aws.region}')
 export cluster_base_domain=$(oc --context ${control_cluster} get dns cluster -o jsonpath='{.spec.baseDomain}')
 export global_base_domain=global.${cluster_base_domain#*.}
+# allowed values are aws,azure,gcp, by default same as control cluster
+export infrastructure=$(oc get infrastructure cluster -o jsonpath='{.spec.platformSpec.type}'| tr '[:upper:]' '[:lower:]')
+case ${infrastructure} in
+  aws)
+    export region=$(oc --context ${control_cluster} get infrastructure cluster -o jsonpath='{.status.platformStatus.aws.region}')
+    export key_id=$(oc --context ${control_cluster} get secret vault-kms -n vault -o jsonpath='{.data.key_id}' | base64 -d )
+  ;;
+  gcp)
+    export gcp_project_id=$(cat ~/.gcp/osServiceAccount.json | jq -r .project_id)
+  ;;
+  azure)
+    
+  ;;
+esac
 for context in ${cluster1} ${cluster2} ${cluster3}; do
   export cluster=${context}
-  envsubst < ./vault/kms-values.yaml.template > /tmp/values.yaml
-  helm --kube-context ${context} upgrade vault ./charts/vault-multicluster -i --create-namespace -n vault -f /tmp/values.yaml
+  envsubst < ./vault/kms-values-${infrastructure}.yaml.template > /tmp/values.yaml
+  helm --kube-context ${context} upgrade vault ./charts/vault-multicluster -i --atomic --create-namespace -n vault -f /tmp/values.yaml
 done
 ```
 
 ### Initialize Vault (run once-only)
 
 ```shell
-HA_INIT_RESPONSE=$(oc --context ${cluster1} exec vault-0 -n vault -- vault operator init -address https://vault-0.cluster1.vault-internal.vault.svc.clusterset.local:8200 -ca-path /etc/vault-tls/vault-tls/ca.crt -format=json -recovery-shares 1 -recovery-threshold 1)
+HA_INIT_RESPONSE=$(oc --context ${cluster1} exec vault-0 -n vault -- vault operator init -address https://vault-0.cluster1.vault-internal.vault.svc.clusterset.local:8200 -ca-path /etc/vault-tls/ca.crt -format=json -recovery-shares 1 -recovery-threshold 1)
 
 HA_UNSEAL_KEY=$(echo "$HA_INIT_RESPONSE" | jq -r .recovery_keys_b64[0])
 HA_VAULT_TOKEN=$(echo "$HA_INIT_RESPONSE" | jq -r .root_token)
@@ -67,7 +88,25 @@ oc --context ${control_cluster} create secret generic vault-init -n vault --from
 ### Verify Vault Cluster Health
 
 ```shell
-oc --context ${cluster1} exec vault-0 -n vault -- sh -c "VAULT_TOKEN=${HA_VAULT_TOKEN} vault operator raft list-peers -address https://vault-0.cluster1.vault-internal.vault.svc.clusterset.local:8200 -ca-path /etc/vault-tls/vault-tls/ca.crt"
+oc --context ${cluster1} exec vault-0 -n vault -- sh -c "VAULT_TOKEN=${HA_VAULT_TOKEN} vault operator raft list-peers -address https://vault-0.cluster1.vault-internal.vault.svc.clusterset.local:8200 -ca-path /etc/vault-tls/ca.crt"
+```
+
+### Create global dns entry -- gcp only
+
+```shell
+IPs=""
+for cluster in ${cluster1} ${cluster2} ${cluster3}; do
+  IP=$(oc --context ${cluster} get svc router-default -n openshift-ingress -o jsonpath='{.status.loadBalancer.ingress[].ip}')
+  echo $IP
+  IPs+=${IP},
+done
+IPs="${IPs%,}"
+export cluster_base_domain=$(oc --context ${control_cluster} get dns cluster -o jsonpath='{.spec.baseDomain}')
+export base_domain=${cluster_base_domain#*.}
+export global_base_domain=global.${cluster_base_domain#*.}
+export global_base_domain_no_dots=$(echo ${global_base_domain} | tr '.' '-')
+gcloud dns record-sets delete vault.global.demo.gcp.red-chesterfield.com --type=A --zone=${global_base_domain_no_dots}
+gcloud dns record-sets create vault.global.demo.gcp.red-chesterfield.com --rrdatas=${IPs} --type=A --ttl=60 --zone=${global_base_domain_no_dots}
 ```
 
 ### Testing vault external connectivity
