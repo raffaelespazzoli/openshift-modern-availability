@@ -1,0 +1,36 @@
+apiVersion: hive.openshift.io/v1
+kind: MachinePool
+metadata:
+  name: {{ .Values.clusterRef }}-{{ .Values.purpose }}
+spec:
+  clusterDeploymentRef:
+    name: {{ .Values.clusterRef }}
+  name: {{ .Values.purpose }}
+  platform:
+    {{ if eq .Values.infrastructure "aws"}}
+    aws:
+      rootVolume:
+        iops: 100
+        size: 100
+        type: gp2
+      type: {{ .Values.aws.machineType }}
+    {{ end }}
+    {{ if eq .Values.infrastructure "azure"}}
+    azure:
+      osDisk:
+        diskSizeGB: 128
+      type: {{ .Values.azr.machineType }}
+    {{ end }}
+    {{ if eq .Values.infrastructure "gcp"}}
+    gcp:
+      type: {{ .Values.gcp.machineType }}
+    {{ end }}  
+  replicas: {{ .Values.replicas }}
+  {{- with .Values.labels }}
+  labels:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}  
+  {{- with .Values.taints }}
+  taints:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}          

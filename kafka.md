@@ -4,37 +4,9 @@
 
 ```shell
 export infrastructure=$(oc get infrastructure cluster -o jsonpath='{.spec.platformSpec.type}'| tr '[:upper:]' '[:lower:]')
-export machine_purpose=kafka
-case ${infrastructure} in
-  aws)
-    export instance_type="m5n.2xlarge"
-    export region_suffixes=("a" "b" "c")
-  ;;
-  gcp)
-    export machine_type="n2-standard-8"
-    export gcp_project_id=$(cat ~/.gcp/osServiceAccount.json | jq -r .project_id)
-    export region_suffixes=("-a" "-b" "-c")
-  ;;
-  azure)
-    export machine_type="Standard_D8_v3"
-  ;;
-esac
-for context in ${cluster1} ${cluster2} ${cluster3}; do
-  for machineset in $(oc --context ${context} get machineset -n openshift-machine-api | grep kafka | awk '{print $1}'); do 
-    oc --context ${context} scale machineset ${machineset} -n openshift-machine-api --replicas 0
-  done  
-  export cluster_name=$(oc --context ${context} get infrastructure cluster -o jsonpath='{.status.infrastructureName}')
-  export region=$(oc --context ${context} get infrastructure cluster -o jsonpath='{.status.platformStatus.gcp.region}')
-  export image=$(oc --context ${context} get machineset -n openshift-machine-api -o jsonpath='{.items[0].spec.template.spec.providerSpec.value.disks[0].image}')
-  for z in ${region_suffixes[@]}; do
-    export zone=${region}${z}
-    export ami=$(oc --context ${context} get machineset -n openshift-machine-api -o jsonpath='{.items[0].spec.template.spec.providerSpec.value.ami.id}')
-    envsubst < ./kafka/machineset-values-${infrastructure}.templ.yaml > /tmp/values.yaml
-    helm --kube-context ${context} upgrade kafka-machine-${zone} ./charts/machineset --atomic -i -f /tmp/values.yaml
-  done
-  for machineset in $(oc --context ${context} get machineset -n openshift-machine-api | grep kafka | awk '{print $1}'); do 
-    oc --context ${context} scale machineset ${machineset} -n openshift-machine-api --replicas 1
-  done
+for cluster in ${cluster1} ${cluster2} ${cluster3}; do
+  envsubst < ./kafka/machinepool-values.templ.yaml > /tmp/values.yaml
+  helm --kube-context ${control_cluster} upgrade kafka-machine-pool ./charts/machine-pool -n ${cluster} --atomic -i -f /tmp/values.yaml
 done
 ```
 

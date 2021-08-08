@@ -29,3 +29,8 @@ This tutorial is comprised of the following steps:
 
     The result of this step is the following:
     ![deploying keycloak](./media/keycloak.png)
+
+5. [deploying kafka](./kafka.md)
+
+    The result of this step is the following:
+    ![deploying kafka](./media/kafka.png)

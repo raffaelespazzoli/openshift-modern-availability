@@ -1,0 +1,16 @@
+labels: 
+  workload: kafka
+taints: 
+- key: workload
+  value: kafka
+  effect: NoSchedule
+purpose: kafka
+clusterRef: ${cluster}
+infrastructure: ${infrastructure}
+replicas: 3
+azr:
+  machineType: Standard_D8_v3
+gcp:
+  machineType: n2-standard-8
+aws:
+  machineType: m5n.2xlarge 
