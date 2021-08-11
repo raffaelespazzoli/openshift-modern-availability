@@ -15,7 +15,7 @@ spec:
         type: gp2
       type: m5.large
     {{ end }}
-    {{ if eq .Values.infrastructure "azr"}}
+    {{ if eq .Values.infrastructure "azure"}}
     azure:
       osDisk:
         diskSizeGB: 128

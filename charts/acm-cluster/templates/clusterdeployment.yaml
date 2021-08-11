@@ -29,7 +29,7 @@ spec:
     {{ end }}
     {{ if eq .Values.infrastructure "azure"}}
     azure:
-      baseDomainResourceGroupName: {{ .Values.baseDomainResourceGroupName }}
+      baseDomainResourceGroupName: {{ .Values.azr.baseDomainResourceGroupName }}
       credentialsSecretRef:
         name: {{ .Release.Name }}-credentials
       region: {{ .Values.region }}

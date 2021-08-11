@@ -14,3 +14,6 @@ yscb_cluster3.log
 ./keycloak/tilt_modules/
 
 wireguard/entitlements
+cluster1-metadata-azure.json
+cluster2-metadata-azure.json
+cluster3-metadata-azure.json

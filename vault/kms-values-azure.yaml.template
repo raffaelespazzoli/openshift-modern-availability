@@ -23,9 +23,6 @@ vault:
     extraVolumes:
       - type: 'secret'
         name: 'vault-tls'
-        path: '/etc'
-      - type: 'secret'
-        name: 'kms-cloud-credentials'
         path: '/etc'                 
     ha:
       replicas: 3
@@ -44,13 +41,13 @@ vault:
             tls_client_ca_file="/etc/vault-tls/ca.crt"          
           }
 
-          seal "gcpckms" {
-            credentials = "/etc/kms-cloud-credentials/service_account.json"
-            project     = "${gcp_project_id}"
-            region      = "global"
-            key_ring    = "acm"
-            crypto_key  = "vault"
-          }
+          seal "azurekeyvault" {
+            tenant_id      = "${tenantId}"
+            client_id      = "${clientId}"
+            client_secret  = "${clientSecret}"
+            vault_name     = "raffa-vault"
+            key_name       = "hashicorp-vault-unseal-key"
+          }          
 
           storage "raft" {
             path = "/vault/data"
@@ -119,5 +116,5 @@ vault:
       AGENT_INJECT_SET_SECURITY_CONTEXT: "false"
     image:
       repository: "docker.io/hashicorp/vault-k8s"
-      tag: "0.11.0"
+      tag: "0.11.0"      
 

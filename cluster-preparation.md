@@ -91,7 +91,7 @@ case ${infrastructure} in
     export region="us-west4"
   ;;
   azure)
-    export region="westus3"
+    export region="westus2"
   ;;
 esac
 export network_cidr="10.136.0.0/14"
@@ -114,12 +114,13 @@ At this point your architecture should look like the below image:
 Collect the cluster metadata. This is useful if something goes wrong and you need to force the deletion of the clusters.
 
 ```shell
+export infrastructure=$(oc get infrastructure cluster -o jsonpath='{.spec.platformSpec.type}'| tr '[:upper:]' '[:lower:]')
 for cluster in cluster1 cluster2 cluster3; do
   export cluster_name=$(oc get secret ${cluster}-install-config -n ${cluster} -o jsonpath='{.data.install-config\.yaml}' | base64 -d | yq -r .metadata.name )
   export cluster_id=$(oc get clusterdeployment ${cluster} -n ${cluster} -o jsonpath='{.spec.clusterMetadata.clusterID}')
   export region=$(oc get clusterdeployment ${cluster} -n ${cluster} -o jsonpath='{.spec.platform.aws.region}')
   export infra_id=$(oc get clusterdeployment ${cluster} -n ${cluster} -o jsonpath='{.spec.clusterMetadata.infraID}')
-  envsubst < ./acm/metadata.tpl.json > ./${cluster}-metadata.json
+  envsubst < ./acm/metadata.tpl.json > ./${cluster}-metadata-${infrastructure}.json
 done
 ```
 
@@ -270,6 +271,70 @@ gcloud compute firewall-rules create --network ${infrastructure_2}-network --dir
 gcloud compute firewall-rules create --network ${infrastructure_3}-network --direction OUT --destination-ranges 0.0.0.0/0 --allow tcp:4800,udp:500,udp:4500,udp:4800,esp ${infrastructure_3}-submariner-out
 ```
 
+### Peer Virtual Networks for Azure
+
+```shell
+export network_resource_group1=$(oc --context cluster1 get infrastructure cluster -o jsonpath='{.status.platformStatus.azure.networkResourceGroupName}')
+export network_resource_group2=$(oc --context cluster2 get infrastructure cluster -o jsonpath='{.status.platformStatus.azure.networkResourceGroupName}')
+export network_resource_group3=$(oc --context cluster3 get infrastructure cluster -o jsonpath='{.status.platformStatus.azure.networkResourceGroupName}')
+export vnet1=$(oc --context cluster1 get infrastructure cluster -o jsonpath='{.status.infrastructureName}')-vnet
+export vnet2=$(oc --context cluster2 get infrastructure cluster -o jsonpath='{.status.infrastructureName}')-vnet
+export vnet3=$(oc --context cluster3 get infrastructure cluster -o jsonpath='{.status.infrastructureName}')-vnet
+export nsg1=$(oc --context cluster1 get infrastructure cluster -o jsonpath='{.status.infrastructureName}')-nsg
+export nsg2=$(oc --context cluster2 get infrastructure cluster -o jsonpath='{.status.infrastructureName}')-nsg
+export nsg3=$(oc --context cluster3 get infrastructure cluster -o jsonpath='{.status.infrastructureName}')-nsg
+export vnet_id1=$(az network vnet show -g ${network_resource_group1} -n ${vnet1} | jq -r .id)
+export vnet_id2=$(az network vnet show -g ${network_resource_group2} -n ${vnet2} | jq -r .id)
+export vnet_id3=$(az network vnet show -g ${network_resource_group3} -n ${vnet3} | jq -r .id)
+export vnet_cidr1=$(az network vnet show -g ${network_resource_group1} -n ${vnet1} | jq -r .addressSpace.addressPrefixes[0])
+export vnet_cidr2=$(az network vnet show -g ${network_resource_group2} -n ${vnet2} | jq -r .addressSpace.addressPrefixes[0])
+export vnet_cidr3=$(az network vnet show -g ${network_resource_group3} -n ${vnet3} | jq -r .addressSpace.addressPrefixes[0])
+
+
+# 1-2
+az network vnet peering create --resource-group ${network_resource_group1} -n vnet_peering1_2 --vnet-name ${vnet1} --remote-vnet ${vnet_id2} --allow-vnet-access --allow-forwarded-traffic
+az network vnet peering create --resource-group ${network_resource_group2} -n vnet_peering2_1 --vnet-name ${vnet2} --remote-vnet ${vnet_id1} --allow-vnet-access --allow-forwarded-traffic
+
+# 1-3
+az network vnet peering create --resource-group ${network_resource_group1} -n vnet_peering1_3 --vnet-name ${vnet1} --remote-vnet ${vnet_id3} --allow-vnet-access --allow-forwarded-traffic
+az network vnet peering create --resource-group ${network_resource_group3} -n vnet_peering3_1 --vnet-name ${vnet3} --remote-vnet ${vnet_id1} --allow-vnet-access --allow-forwarded-traffic
+
+# 2-3
+az network vnet peering create --resource-group ${network_resource_group2} -n vnet_peering2_3 --vnet-name ${vnet2} --remote-vnet ${vnet_id3} --allow-vnet-access --allow-forwarded-traffic
+az network vnet peering create --resource-group ${network_resource_group3} -n vnet_peering3_2 --vnet-name ${vnet3} --remote-vnet ${vnet_id2} --allow-vnet-access --allow-forwarded-traffic
+```
+
+Create firewall rules for submariner
+
+```shell
+# network security group1
+az network nsg rule create --name submariner-inbound --nsg-name ${nsg1} --priority 600 --resource-group ${network_resource_group1} --access Allow --direction Inbound --destination-address-prefixes 'VirtualNetwork' --destination-port-ranges 4500 --protocol Udp --source-address-prefixes ${vnet_cidr2} ${vnet_cidr3} --source-port-ranges '*'
+
+az network nsg rule create --name submariner-inbound-perf --nsg-name ${nsg1} --priority 601 --resource-group ${network_resource_group1} --access Allow --direction Inbound --destination-address-prefixes 'VirtualNetwork' --destination-port-ranges 4800 --protocol Tcp --source-address-prefixes ${vnet_cidr2} ${vnet_cidr3} --source-port-ranges '*'
+
+az network nsg rule create --name submariner-outbound --nsg-name ${nsg1} --priority 600 --resource-group ${network_resource_group1} --access Allow --direction Outbound --source-address-prefixes 'VirtualNetwork' --destination-port-ranges 4500 --protocol Udp --destination-address-prefixes ${vnet_cidr2} ${vnet_cidr3} --source-port-ranges '*'
+
+az network nsg rule create --name submariner-outbound-perf --nsg-name ${nsg1} --priority 601 --resource-group ${network_resource_group1} --access Allow --direction Outbound --source-address-prefixes 'VirtualNetwork' --destination-port-ranges 4800 --protocol Tcp --destination-address-prefixes ${vnet_cidr2} ${vnet_cidr3} --source-port-ranges '*'
+
+# network security group2
+az network nsg rule create --name submariner-inbound --nsg-name ${nsg2} --priority 600 --resource-group ${network_resource_group2} --access Allow --direction Inbound --destination-address-prefixes 'VirtualNetwork' --destination-port-ranges 4500 --protocol Udp --source-address-prefixes ${vnet_cidr1} ${vnet_cidr3} --source-port-ranges '*'
+
+az network nsg rule create --name submariner-inbound-perf --nsg-name ${nsg2} --priority 601 --resource-group ${network_resource_group2} --access Allow --direction Inbound --destination-address-prefixes 'VirtualNetwork' --destination-port-ranges 4800 --protocol Tcp --source-address-prefixes ${vnet_cidr1} ${vnet_cidr3} --source-port-ranges '*'
+
+az network nsg rule create --name submariner-outbound --nsg-name ${nsg2} --priority 600 --resource-group ${network_resource_group2} --access Allow --direction Outbound --source-address-prefixes 'VirtualNetwork' --destination-port-ranges 4500 --protocol Udp --destination-address-prefixes ${vnet_cidr1} ${vnet_cidr3} --source-port-ranges '*'
+
+az network nsg rule create --name submariner-outbound-perf --nsg-name ${nsg2} --priority 601 --resource-group ${network_resource_group2} --access Allow --direction Outbound --source-address-prefixes 'VirtualNetwork' --destination-port-ranges 4800 --protocol Tcp --destination-address-prefixes ${vnet_cidr1} ${vnet_cidr3} --source-port-ranges '*'
+
+# network security group3
+az network nsg rule create --name submariner-inbound --nsg-name ${nsg3} --priority 600 --resource-group ${network_resource_group3} --access Allow --direction Inbound --destination-address-prefixes 'VirtualNetwork' --destination-port-ranges 4500 --protocol Udp --source-address-prefixes ${vnet_cidr2} ${vnet_cidr1} --source-port-ranges '*'
+
+az network nsg rule create --name submariner-inbound-perf --nsg-name ${nsg3} --priority 601 --resource-group ${network_resource_group3} --access Allow --direction Inbound --destination-address-prefixes 'VirtualNetwork' --destination-port-ranges 4800 --protocol Tcp --source-address-prefixes ${vnet_cidr2} ${vnet_cidr1} --source-port-ranges '*'
+
+az network nsg rule create --name submariner-outbound --nsg-name ${nsg3} --priority 600 --resource-group ${network_resource_group3} --access Allow --direction Outbound --source-address-prefixes 'VirtualNetwork' --destination-port-ranges 4500 --protocol Udp --destination-address-prefixes ${vnet_cidr2} ${vnet_cidr1} --source-port-ranges '*'
+
+az network nsg rule create --name submariner-outbound-perf --nsg-name ${nsg3} --priority 601 --resource-group ${network_resource_group3} --access Allow --direction Outbound --source-address-prefixes 'VirtualNetwork' --destination-port-ranges 4800 --protocol Tcp --destination-address-prefixes ${vnet_cidr2} ${vnet_cidr1} --source-port-ranges '*'
+```
+
 ### Install submariner manually
 
 Run this if you didn't install submariner via RHACM, required for latest submariner version
@@ -331,6 +396,18 @@ export ns_record_data=$(gcloud dns record-sets list -z ${global_base_domain_no_d
 gcloud dns record-sets create ${global_base_domain} --rrdatas=${ns_record_data} --type=NS -z ${base_domain_zone}
 ```
 
+### Create global zone and create zone delegation -- azure
+
+This will create a global zone called `global.<cluster-base-domain>` with associated zone delegation.
+
+```shell
+export cluster_base_domain=$(oc --context ${control_cluster} get dns cluster -o jsonpath='{.spec.baseDomain}')
+export base_domain=${cluster_base_domain#*.}
+export global_base_domain=global.${cluster_base_domain#*.}
+export resource_group=$(oc --context ${control_cluster} get DNS cluster -o jsonpath='{.spec.publicZone.id}' | cut -f 5 -d "/" -)
+az network dns zone create --name ${global_base_domain} --resource-group ${resource_group} --parent-name ${base_domain} --tags raffa-global-domain
+```
+
 ### Deploy operator
 
 ```shell
@@ -362,6 +439,31 @@ export global_zone_res=$(aws route53 list-hosted-zones-by-name --dns-name ${glob
 export global_zone_id=${global_zone_res##*/}
 envsubst < ./global-load-balancer-operator/route53-dns-zone.yaml | oc --context ${control_cluster} apply -f -
 envsubst < ./global-load-balancer-operator/route53-global-route-discovery.yaml | oc --context ${control_cluster} apply -f - -n ${namespace}
+```
+
+### Deploy global dns configuration for azure -- simple azure-DNS
+
+```shell
+export namespace=global-load-balancer-operator
+envsubst < ./global-load-balancer-operator/azureDNS-credentials-request.yaml | oc --context ${control_cluster} apply -f -
+export clientId=$(oc --context ${control_cluster} get secret azure-dns-global-zone-credentials -n global-load-balancer-operator -o jsonpath='{.data.azure_client_id}' | base64 -d)
+export clientSecret=$(oc --context ${control_cluster} get secret azure-dns-global-zone-credentials -n global-load-balancer-operator -o jsonpath='{.data.azure_client_secret}' | base64 -d)
+export tenantId=$(oc --context ${control_cluster} get secret azure-dns-global-zone-credentials -n global-load-balancer-operator -o jsonpath='{.data.azure_tenant_id}' | base64 -d)
+export subscriptionId=$(oc --context ${control_cluster} get secret azure-dns-global-zone-credentials -n global-load-balancer-operator -o jsonpath='{.data.azure_subscription_id}' | base64 -d)
+export resourceGroup=$(oc --context ${control_cluster} get secret azure-dns-global-zone-credentials -n global-load-balancer-operator -o jsonpath='{.data.azure_resourcegroup}' | base64 -d)
+envsubst < ./global-load-balancer-operator/azure-service-account.tmpl.json > /tmp/azure.json
+oc --context ${control_cluster} create secret generic azure-config-file -n global-load-balancer-operator --from-file=/tmp/azure.json
+
+export cluster_base_domain=$(oc --context ${control_cluster} get dns cluster -o jsonpath='{.spec.baseDomain}')
+export global_base_domain=global.${cluster_base_domain#*.}
+export dnsResourceGroup=$(oc --context ${control_cluster} get DNS cluster -o jsonpath='{.spec.publicZone.id}' | cut -f 5 -d "/" -)
+envsubst < ./global-load-balancer-operator/external-dns-azure.yaml | oc --context ${control_cluster} apply -f - -n global-load-balancer-operator
+
+export cluster1_secret_name=$(oc --context ${control_cluster} get clusterdeployment cluster1 -n cluster1 -o jsonpath='{.spec.clusterMetadata.adminKubeconfigSecretRef.name}')
+export cluster2_secret_name=$(oc --context ${control_cluster} get clusterdeployment cluster2 -n cluster2 -o jsonpath='{.spec.clusterMetadata.adminKubeconfigSecretRef.name}')
+export cluster3_secret_name=$(oc --context ${control_cluster} get clusterdeployment cluster3 -n cluster3 -o jsonpath='{.spec.clusterMetadata.adminKubeconfigSecretRef.name}')
+envsubst < ./global-load-balancer-operator/azureDNS-dns-zone.yaml | oc --context ${control_cluster} apply -f - -n global-load-balancer-operator
+envsubst < ./global-load-balancer-operator/azureDNS-global-route-discovery.yaml | oc --context ${control_cluster} apply -f - -n global-load-balancer-operator
 ```
 
 At this point your architecture should look like the below image:

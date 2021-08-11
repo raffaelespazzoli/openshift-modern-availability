@@ -6,7 +6,7 @@ In this step we are going to use Vault as our secret manager and we are going to
 
 ## Deploy Vault
 
-### Create vault root keys (rootca and aws KMS key)
+### Create vault unseal key with aws KMS
 
 ```shell
 export region=$(oc --context ${control_cluster} get infrastructure cluster -o jsonpath='{.status.platformStatus.aws.region}')
@@ -14,14 +14,29 @@ export key_id=$(aws --region ${region} kms create-key --description "used by vau
 aws --region ${region} kms tag-resource --key-id ${key_id} --tags TagKey=name,TagValue=vault-key
 oc --context ${control_cluster} new-project vault
 oc --context ${control_cluster} create secret generic vault-kms -n vault --from-literal=key_id=${key_id}
-oc --context ${control_cluster} apply -f ./vault/vault-control-cluster-certs.yaml -n vault
 ```
 
-### Create vault root keys (rootca and google KMS key)
+### Create vault unseal key with google KMS
 
 ```shell
 gcloud kms keyrings create "acm" --location "global"
 gcloud kms keys create "vault" --location "global" --keyring "acm" --purpose "encryption"
+```
+
+### Create vault unseal key with azure KMS
+
+```shell
+export region=$(oc --context ${control_cluster} get machine -n openshift-machine-api -o jsonpath='{.items[0].metadata.labels.machine\.openshift\.io/region}')
+export resourceGroupName=$(oc --context ${control_cluster} get infrastructure cluster -o jsonpath='{.status.platformStatus.azure.resourceGroupName}')
+az keyvault create --name "raffa-vault" --resource-group ${resourceGroupName} --location ${region}
+az keyvault secret set --vault-name "raffa-vault" --name "hashicorp-vault-unseal-key" --value "hashicorp-vault-unseal-key"
+```
+
+### Create Vault root certificate
+
+```shell
+oc --context ${control_cluster} new-project cert-manager
+oc --context ${control_cluster} apply --validate=false -f https://github.com/jetstack/cert-manager/releases/download/v1.5.0/cert-manager.yaml
 oc --context ${control_cluster} new-project vault
 oc --context ${control_cluster} apply -f ./vault/vault-control-cluster-certs.yaml -n vault
 ```
@@ -33,7 +48,7 @@ helm repo add stakater https://stakater.github.io/stakater-charts
 helm repo update
 for context in ${cluster1} ${cluster2} ${cluster3}; do
   oc --context ${context} new-project cert-manager
-  oc --context ${context} apply --validate=false -f https://github.com/jetstack/cert-manager/releases/download/v1.0.4/cert-manager.yaml
+  oc --context ${context} apply --validate=false -f https://github.com/jetstack/cert-manager/releases/download/v1.5.0/cert-manager.yaml
   oc --context ${context} new-project cert-utils-operator
   oc --context ${context} apply  -f ./cert-utils-operator/operator.yaml -n cert-utils-operator
   oc new-project reloader
@@ -60,7 +75,9 @@ case ${infrastructure} in
     export gcp_project_id=$(cat ~/.gcp/osServiceAccount.json | jq -r .project_id)
   ;;
   azure)
-    
+    export tenantId=$(cat ~/.azure/osServicePrincipal.json | jq -r .tenantId)
+    export clientId=$(cat ~/.azure/osServicePrincipal.json | jq -r .clientId)
+    export clientSecret=$(cat ~/.azure/osServicePrincipal.json | jq -r .clientSecret)
   ;;
 esac
 for context in ${cluster1} ${cluster2} ${cluster3}; do

@@ -136,4 +136,7 @@ vault:
   injector:
     extraEnvironmentVars: 
       AGENT_INJECT_SET_SECURITY_CONTEXT: "false"
+    image:
+      repository: "docker.io/hashicorp/vault-k8s"
+      tag: "0.11.0"      
 

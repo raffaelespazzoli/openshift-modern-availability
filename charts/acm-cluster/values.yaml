@@ -55,12 +55,8 @@ install_config:
     serviceNetwork:
       # added by template
     - ""
-  platform:
-    gcp:
-      # added by template
-      projectID: ""
-      # added by template
-      region: ""
+  platform: {}
+    # added by template
   pullSecret: "" # skip, hive will inject based on it's secrets
   # added by template
   sshKey: ""
