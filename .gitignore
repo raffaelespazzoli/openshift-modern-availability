@@ -17,3 +17,6 @@ wireguard/entitlements
 cluster1-metadata-azure.json
 cluster2-metadata-azure.json
 cluster3-metadata-azure.json
+cluster1-metadata-gcp.json
+cluster2-metadata-gcp.json
+cluster3-metadata-gcp.json

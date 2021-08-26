@@ -28,8 +28,10 @@ gcloud kms keys create "vault" --location "global" --keyring "acm" --purpose "en
 ```shell
 export region=$(oc --context ${control_cluster} get machine -n openshift-machine-api -o jsonpath='{.items[0].metadata.labels.machine\.openshift\.io/region}')
 export resourceGroupName=$(oc --context ${control_cluster} get infrastructure cluster -o jsonpath='{.status.platformStatus.azure.resourceGroupName}')
-az keyvault create --name "raffa-vault" --resource-group ${resourceGroupName} --location ${region}
-az keyvault secret set --vault-name "raffa-vault" --name "hashicorp-vault-unseal-key" --value "hashicorp-vault-unseal-key"
+export app_id=$(cat ~/.azure/osServicePrincipal.json | jq -r .clientId)
+az keyvault create --name "raffa-vault" --resource-group ${resourceGroupName} --location ${region} --enable-soft-delete false
+az keyvault set-policy --name "raffa-vault" --spn ${app_id} --key-permissions backup create decrypt delete encrypt get import list purge recover restore sign unwrapKey update verify wrapKey
+az keyvault key create --kty RSA --size 2048 --ops unwrapKey verify wrapKey --vault-name "raffa-vault" --name "hashicorp-vault-unseal-key"
 ```
 
 ### Create Vault root certificate
@@ -65,7 +67,7 @@ export rootca_key=$(oc --context ${control_cluster} get secret rootca -n vault -
 export cluster_base_domain=$(oc --context ${control_cluster} get dns cluster -o jsonpath='{.spec.baseDomain}')
 export global_base_domain=global.${cluster_base_domain#*.}
 # allowed values are aws,azure,gcp, by default same as control cluster
-export infrastructure=$(oc get infrastructure cluster -o jsonpath='{.spec.platformSpec.type}'| tr '[:upper:]' '[:lower:]')
+export infrastructure=$(oc --context ${control_cluster} get infrastructure cluster -o jsonpath='{.spec.platformSpec.type}'| tr '[:upper:]' '[:lower:]')
 case ${infrastructure} in
   aws)
     export region=$(oc --context ${control_cluster} get infrastructure cluster -o jsonpath='{.status.platformStatus.aws.region}')

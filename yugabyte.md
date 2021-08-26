@@ -3,24 +3,18 @@
 ## Create adequate nodes
 
 ```shell
-for context in ${cluster1} ${cluster2} ${cluster3}; do
-  export cluster_name=$(oc --context ${context} get infrastructure cluster -o jsonpath='{.status.infrastructureName}')
-  export region=$(oc --context ${context} get infrastructure cluster -o jsonpath='{.status.platformStatus.aws.region}')
-  export ami=$(oc --context ${context} get machineset -n openshift-machine-api -o jsonpath='{.items[0].spec.template.spec.providerSpec.value.ami.id}')
-  export machine_type=yugabyte
-  export instance_type=c5d.4xlarge
-  for z in a b c; do
-    export zone=${region}${z}
-    oc --context ${context} scale machineset -n openshift-machine-api $(envsubst < ./yugabyte/machineset.yaml | yq -r .metadata.name) --replicas 0 
-    envsubst < ./yugabyte/machineset.yaml | oc --context ${context} apply -f -
-  done
-  oc --context ${context} apply -f ./yugabyte/storage-class.yaml
+export infrastructure=$(oc --context ${control_cluster} get infrastructure cluster -o jsonpath='{.spec.platformSpec.type}'| tr '[:upper:]' '[:lower:]')
+for cluster in ${cluster1} ${cluster2} ${cluster3}; do
+  #helm --kube-context ${control_cluster} uninstall yugabyte-machine-pool -n ${cluster}
+  envsubst < ./yugabyte/machinepool-values.templ.yaml > /tmp/values.yaml 
+  helm --kube-context ${control_cluster} upgrade yugabyte-machine-pool ./charts/machine-pool -n ${cluster} --atomic -i -f /tmp/values.yaml
 done
 ```
 
 ## Deploy yugabyte DB
 
 ```shell
+export infrastructure=$(oc --context ${control_cluster} get infrastructure cluster -o jsonpath='{.spec.platformSpec.type}'| tr '[:upper:]' '[:lower:]')
 export cluster_base_domain=$(oc --context ${control_cluster} get dns cluster -o jsonpath='{.spec.baseDomain}')
 export global_base_domain=global.${cluster_base_domain#*.}
 for context in ${cluster1} ${cluster2} ${cluster3}; do
@@ -52,7 +46,7 @@ Note this script tends to fail as helm does not handle well large charts. It's m
 for context in ${cluster1} ${cluster2} ${cluster3}; do
   export prometheus_password=$(oc --context ${context} extract secret/grafana-datasources -n openshift-monitoring --keys=prometheus.yaml --to=- | jq -r '.datasources[0].basicAuthPassword')
   envsubst < ./yugabyte/values.monitoring-stack.templ.yaml > /tmp/values.yaml
-  helm --kube-context ${context} upgrade monitoring-stack ./charts/monitoring-stack -i -n yugabyte --create-namespace -f /tmp/values.yaml
+  helm --kube-context ${context} upgrade monitoring-stack ./charts/monitoring-stack --atomic -i -n yugabyte --create-namespace -f /tmp/values.yaml
   export grafana_token=$(oc --context ${context} sa get-token grafana-serviceaccount -n yugabyte)
   envsubst < ./yugabyte/grafana-datasource-prometheus.templ.yaml | oc --context ${context} apply -f - -n yugabyte
 done
@@ -85,8 +79,18 @@ done
 
 ### Set preferential regions
 
+aws
+
 ```shell
 oc --context ${cluster1} exec -n yugabyte -c yb-master yb-master-0 -- /usr/local/bin/yb-admin --master_addresses yb-master-0.cluster1.yb-masters.yugabyte.svc.clusterset.local:7100,yb-master-0.cluster2.yb-masters.yugabyte.svc.clusterset.local:7100,yb-master-0.cluster3.yb-masters.yugabyte.svc.clusterset.local:7100 --certs_dir_name /opt/certs/yugabyte modify_placement_info aws.us-east-1.us-east-1-zone,aws.us-east-2.us-east-2-zone,aws.us-west-2.us-west-2-zone 3
+
+oc --context ${cluster1} exec -n yugabyte -c yb-master yb-master-0 -- /usr/local/bin/yb-admin --master_addresses yb-master-0.cluster1.yb-masters.yugabyte.svc.clusterset.local:7100,yb-master-0.cluster2.yb-masters.yugabyte.svc.clusterset.local:7100,yb-master-0.cluster3.yb-masters.yugabyte.svc.clusterset.local:7100 --certs_dir_name /opt/certs/yugabyte set_preferred_zones aws.us-east-1.us-east-1-zone aws.us-east-2.us-east-2-zone
+```
+
+azure
+
+```shell
+oc --context ${cluster1} exec -n yugabyte -c yb-master yb-master-0 -- /usr/local/bin/yb-admin --master_addresses yb-master-0.cluster1.yb-masters.yugabyte.svc.clusterset.local:7100,yb-master-0.cluster2.yb-masters.yugabyte.svc.clusterset.local:7100,yb-master-0.cluster3.yb-masters.yugabyte.svc.clusterset.local:7100 --certs_dir_name /opt/certs/yugabyte modify_placement_info azure.eastus2.eastus2-1,azure.eastus2.eastus2-2,azure.eastus2.eastus2-3,azure.centralus.centralus-1,azure.centralus.centralus-2,azure.centralus.centralus-3,azure.westus2.westus2-1,azure.westus2.westus2-2,azure.westus2.westus2-3 3
 
 oc --context ${cluster1} exec -n yugabyte -c yb-master yb-master-0 -- /usr/local/bin/yb-admin --master_addresses yb-master-0.cluster1.yb-masters.yugabyte.svc.clusterset.local:7100,yb-master-0.cluster2.yb-masters.yugabyte.svc.clusterset.local:7100,yb-master-0.cluster3.yb-masters.yugabyte.svc.clusterset.local:7100 --certs_dir_name /opt/certs/yugabyte set_preferred_zones aws.us-east-1.us-east-1-zone aws.us-east-2.us-east-2-zone
 ```
@@ -116,7 +120,9 @@ wait for the pod to come up
 ```shell
 export helper_pod=$(oc --context ${cluster1} get pod -n yugabyte | grep tpccbenchmark-helper-pod | awk '{print $1}')
 oc --context ${cluster1} exec -n yugabyte ${helper_pod} -- ln -sf /tmp/src/config ./config
-oc --context ${cluster1} exec -n yugabyte ${helper_pod} -- java -Xmx8G -Dlog4j.configuration=/workload-config/log4j.properties -jar /deployments/oltpbench-1.0-jar-with-dependencies.jar --create=true --load=true --warehouses=1000 --loaderthreads 36 -c /workload-config/workload.xml
+export warehouses=10
+oc --context ${cluster1} exec -n yugabyte ${helper_pod} -- java -Xmx8G -Dlog4j.configuration=/workload-config/log4j.properties -jar /deployments/oltpbench-1.0-jar-with-dependencies.jar --create=true --warehouses=${warehouses} --loaderthreads 36 -c /workload-config/workload.xml
+oc --context ${cluster1} exec -n yugabyte ${helper_pod} -- java -Xmx8G -Dlog4j.configuration=/workload-config/log4j.properties -jar /deployments/oltpbench-1.0-jar-with-dependencies.jar --load=true --warehouses=${warehouses} --loaderthreads 36 -c /workload-config/workload.xml
 ```
 
 ### Run tests

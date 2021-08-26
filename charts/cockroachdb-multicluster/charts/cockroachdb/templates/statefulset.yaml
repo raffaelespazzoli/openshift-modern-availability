@@ -58,8 +58,26 @@ spec:
         fsGroup: {{ .Values.guid }}
     {{- if .Values.tls.enabled }}
       serviceAccountName: {{ template "cockroachdb.tls.serviceAccount.name" . }}
-      {{- if not .Values.tls.certs.provided }}
       initContainers:
+        - name: "topology-discovery"
+          image: registry.redhat.io/openshift4/ose-cli:latest
+          imagePullPolicy: IfNotPresent
+          volumeMounts:
+          - name: topology-conf
+            mountPath: /topology-conf
+          env: 
+          - name: NODE
+            valueFrom:
+              fieldRef:
+                fieldPath: spec.nodeName
+          command:
+          - bash
+          - -c
+          - | 
+            echo export region=$(oc get node ${NODE} -o jsonpath='{.metadata.labels.topology\.kubernetes\.io/region}') >> /topology-conf/topology.conf
+            echo export zone=$(oc get node ${NODE} -o jsonpath='{.metadata.labels.topology\.kubernetes\.io/zone}') >> /topology-conf/topology.conf
+            cat /topology-conf/topology.conf 
+      {{- if not .Values.tls.certs.provided }}
         # The init-certs container sends a CSR (certificate signing request) to
         # the Kubernetes cluster.
         # You can see pending requests using:
@@ -93,6 +111,7 @@ spec:
           volumeMounts:
             - name: certs
               mountPath: /cockroach-certs/
+             
       {{- end }}
     {{- end }}
     {{- if or .Values.statefulset.nodeAffinity .Values.statefulset.podAffinity .Values.statefulset.podAntiAffinity }}
@@ -203,6 +222,7 @@ spec:
             # See details explained here:
             # https://github.com/helm/charts/pull/18993#issuecomment-558795102
             - >-
+              source /topology-conf/topology.conf &&
               exec /cockroach/cockroach
             {{- if index .Values.conf `single-node` }}
               start-single-node
@@ -217,7 +237,7 @@ spec:
                 {{- end -}}
               {{- end }}
               --advertise-addr=$(hostname).{{ .Values.cluster }}.cockroachdb.cockroachdb.svc.clusterset.local
-              --locality-advertise-addr={{ .Values.conf.locality }}@$(hostname).${STATEFULSET_FQDN}
+              --locality-advertise-addr=region=${region}@$(hostname).${STATEFULSET_FQDN}
             {{- with index .Values.conf `cluster-name` }}
               --cluster-name={{ . }}
             {{- if index $.Values.conf `disable-cluster-name-verification` }}
@@ -240,9 +260,7 @@ spec:
               --max-disk-temp-storage={{ index .Values.conf `max-disk-temp-storage` }}
               --max-offset={{ index .Values.conf `max-offset` }}
               --max-sql-memory={{ index .Values.conf `max-sql-memory` }}
-            {{- with .Values.conf.locality }}
-              --locality={{ . }}
-            {{- end }}
+              --locality=region=${region},zone=${zone}
             {{- with index .Values.conf `sql-audit-dir` }}
               --sql-audit-dir={{ . }}
             {{- end }}
@@ -267,6 +285,8 @@ spec:
               containerPort: {{ index .Values.conf `http-port` | int64 }}
               protocol: TCP
           volumeMounts:
+            - name: topology-conf
+              mountPath: /topology-conf          
             - name: datadir
               mountPath: /cockroach/cockroach-data/
           {{- if .Values.tls.enabled }}
@@ -301,6 +321,8 @@ spec:
           resources: {{- toYaml . | nindent 12 }}
         {{- end }}
       volumes:
+        - name: topology-conf
+          emptyDir: {}      
         - name: datadir
         {{- if .Values.storage.persistentVolume.enabled }}
           persistentVolumeClaim:

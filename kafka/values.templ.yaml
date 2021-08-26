@@ -3,11 +3,10 @@ clusterNames:
   - cluster2
   - cluster3
 
-global_base_domain: ${global_base_domain}
 cluster: ${cluster}
 
 zookeeper:
-  replicas: 2
+  replicas: 3
 
 kafka:
   replicas: 3  

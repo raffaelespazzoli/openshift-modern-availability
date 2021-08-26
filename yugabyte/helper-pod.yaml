@@ -78,10 +78,6 @@ data:
         <password>yugabyte</password>
         <isolation>TRANSACTION_REPEATABLE_READ</isolation>
 
-        <!--
-        <terminals>100</terminals>
-        -->
-
         <batchSize>128</batchSize>
         <useKeyingTime>true</useKeyingTime>
         <useThinkTime>true</useThinkTime>
@@ -89,32 +85,39 @@ data:
         <hikariConnectionTimeoutMs>180000</hikariConnectionTimeoutMs>
         <useStoredProcedures>true</useStoredProcedures>
         <displayEnhancedLatencyMetrics>false</displayEnhancedLatencyMetrics>
+        <trackPerSQLStmtLatencies>false</trackPerSQLStmtLatencies>
 
         <transactiontypes>
-          <transactiontype>
-            <name>NewOrder</name>
-          </transactiontype>
-          <transactiontype>
-            <name>Payment</name>
-          </transactiontype>
-          <transactiontype>
-            <name>OrderStatus</name>
-          </transactiontype>
-          <transactiontype>
-            <name>Delivery</name>
-          </transactiontype>
-          <transactiontype>
-            <name>StockLevel</name>
-          </transactiontype>
+            <transaction>
+                <name>NewOrder</name>
+                <weight>45</weight>
+            </transaction>
+            <transaction>
+                <name>Payment</name>
+                <weight>43</weight>
+            </transaction>
+            <transaction>
+                <name>OrderStatus</name>
+                <weight>4</weight>
+            </transaction>
+            <transaction>
+                <name>Delivery</name>
+                <weight>4</weight>
+            </transaction>
+            <transaction>
+                <name>StockLevel</name>
+                <weight>4</weight>
+            </transaction>
         </transactiontypes>
-        <works>
-            <work>
-              <time>3600</time>
-              <rate>10000</rate>
-              <ratelimited bench="tpcc">true</ratelimited>
-              <weights>45,43,4,4,4</weights>
-            </work>
-      </works>
+
+        <runtime>1800</runtime>
+        <rate>10000</rate>
+        <!--
+          Set the number of retries to 0 as retrying when the number of warehouses is
+          high is pointless as it just leads to more failures.
+        -->
+        <maxRetriesPerTransaction>2</maxRetriesPerTransaction>
+        <maxLoaderRetries>2</maxLoaderRetries>
         
     </parameters>
   log4j.properties: | 

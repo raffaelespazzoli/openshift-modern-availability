@@ -1,0 +1,16 @@
+labels: 
+  workload: cockroach
+taints: 
+- key: workload
+  value: cockroach
+  effect: NoSchedule
+purpose: cockroach
+clusterRef: ${cluster}
+infrastructure: ${infrastructure}
+replicas: 3
+azr:
+  machineType: Standard_F16s_v2
+gcp:
+  machineType: c2-standard-16
+aws:
+  machineType: c5d.4xlarge 

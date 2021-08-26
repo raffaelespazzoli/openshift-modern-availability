@@ -1,12 +1,14 @@
 # this image has the bugfix
 # isanketh/yugabyte:dmitry-tls-write-txn-fix-2.5.2.0-b0
 
+infrastructure: ${infrastructure} 
+
 isMultiAz: true
 
-Image:
-  repository: "isanketh/yugabyte"
-  tag: dmitry-tls-write-txn-fix-2.5.2.0-b0
-  pullPolicy: IfNotPresent
+# Image:
+#   repository: "isanketh/yugabyte"
+#   tag: dmitry-tls-write-txn-fix-2.5.2.0-b0
+#   pullPolicy: IfNotPresent
 
 masterAddresses: yb-master-0.cluster1.yb-masters.yugabyte.svc.clusterset.local:7100,yb-master-0.cluster2.yb-masters.yugabyte.svc.clusterset.local:7100,yb-master-0.cluster3.yb-masters.yugabyte.svc.clusterset.local:7100
 
@@ -60,3 +62,18 @@ serviceMonitor:
   enabled: true
   extraLabels:
     release: prom
+
+serviceEndpoints:
+  - name: "yb-master-ui"
+    type: ClusterIP
+    app: "yb-master"
+    ports:
+      http-ui: "7000"
+
+  - name: "yb-tserver-service"
+    type: ClusterIP
+    app: "yb-tserver"
+    ports:
+      tcp-yql-port: "9042"
+      tcp-yedis-port: "6379"
+      tcp-ysql-port: "5433"    

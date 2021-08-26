@@ -88,7 +88,7 @@ case ${infrastructure} in
     export region="us-west-2"
   ;;
   gcp)
-    export region="us-west4"
+    export region="us-west1"
   ;;
   azure)
     export region="westus2"
@@ -161,7 +161,7 @@ Run this if you intend to run the wireguard cable driver for submariner
 
 Procure an entitlement, this can usually be done in the customer portals: Systems->Subscriptions->Download.
 Extract the archive and move the file in `export/entitlement_certificates/*.pem` to the `./entitlements` folder.
-Also explained [here] (https://www.openshift.com/blog/how-to-use-entitled-image-builds-to-build-drivercontainers-with-ubi-on-openshift).
+Also explained [here](https://www.openshift.com/blog/how-to-use-entitled-image-builds-to-build-drivercontainers-with-ubi-on-openshift).
 
 ```shell
 export entitlement_file=$(ls ./wireguard/entitlements/*.pem)
@@ -262,13 +262,13 @@ Create firewall rules for submariner
 export infrastructure_1=$(oc --context cluster1 get infrastructure cluster -o jsonpath='{.status.infrastructureName}')
 export infrastructure_2=$(oc --context cluster2 get infrastructure cluster -o jsonpath='{.status.infrastructureName}')
 export infrastructure_3=$(oc --context cluster3 get infrastructure cluster -o jsonpath='{.status.infrastructureName}')
-gcloud compute firewall-rules create --network ${infrastructure_1}-network --target-tags ${infrastructure_1}-worker --direction Ingress --source-ranges 0.0.0.0/0 --allow tcp:4800,udp:500,udp:4500,udp:4800,esp ${infrastructure_1}-submariner-in
-gcloud compute firewall-rules create --network ${infrastructure_2}-network --target-tags ${infrastructure_2}-worker --direction Ingress --source-ranges 0.0.0.0/0 --allow tcp:4800,udp:500,udp:4500,udp:4800,esp ${infrastructure_2}-submariner-in
-gcloud compute firewall-rules create --network ${infrastructure_3}-network --target-tags ${infrastructure_3}-worker --direction Ingress --source-ranges 0.0.0.0/0 --allow tcp:4800,udp:500,udp:4500,udp:4800,esp ${infrastructure_3}-submariner-in
+gcloud compute firewall-rules create --network ${infrastructure_1}-network --target-tags ${infrastructure_1}-worker --direction Ingress --source-ranges 0.0.0.0/0 --allow tcp:4800,udp:4500,udp:4800,esp ${infrastructure_1}-submariner-in
+gcloud compute firewall-rules create --network ${infrastructure_2}-network --target-tags ${infrastructure_2}-worker --direction Ingress --source-ranges 0.0.0.0/0 --allow tcp:4800,udp:4500,udp:4800,esp ${infrastructure_2}-submariner-in
+gcloud compute firewall-rules create --network ${infrastructure_3}-network --target-tags ${infrastructure_3}-worker --direction Ingress --source-ranges 0.0.0.0/0 --allow tcp:4800,udp:4500,udp:4800,esp ${infrastructure_3}-submariner-in
 
-gcloud compute firewall-rules create --network ${infrastructure_1}-network --direction OUT --destination-ranges 0.0.0.0/0 --allow tcp:4800,udp:500,udp:4500,udp:4800,esp ${infrastructure_1}-submariner-out
-gcloud compute firewall-rules create --network ${infrastructure_2}-network --direction OUT --destination-ranges 0.0.0.0/0 --allow tcp:4800,udp:500,udp:4500,udp:4800,esp ${infrastructure_2}-submariner-out
-gcloud compute firewall-rules create --network ${infrastructure_3}-network --direction OUT --destination-ranges 0.0.0.0/0 --allow tcp:4800,udp:500,udp:4500,udp:4800,esp ${infrastructure_3}-submariner-out
+gcloud compute firewall-rules create --network ${infrastructure_1}-network --direction OUT --destination-ranges 0.0.0.0/0 --allow tcp:4800,udp:4500,udp:4800,esp ${infrastructure_1}-submariner-out
+gcloud compute firewall-rules create --network ${infrastructure_2}-network --direction OUT --destination-ranges 0.0.0.0/0 --allow tcp:4800,udp:4500,udp:4800,esp ${infrastructure_2}-submariner-out
+gcloud compute firewall-rules create --network ${infrastructure_3}-network --direction OUT --destination-ranges 0.0.0.0/0 --allow tcp:4800,udp:4500,udp:4800,esp ${infrastructure_3}-submariner-out
 ```
 
 ### Peer Virtual Networks for Azure
@@ -445,7 +445,7 @@ envsubst < ./global-load-balancer-operator/route53-global-route-discovery.yaml |
 
 ```shell
 export namespace=global-load-balancer-operator
-envsubst < ./global-load-balancer-operator/azureDNS-credentials-request.yaml | oc --context ${control_cluster} apply -f -
+
 export clientId=$(oc --context ${control_cluster} get secret azure-dns-global-zone-credentials -n global-load-balancer-operator -o jsonpath='{.data.azure_client_id}' | base64 -d)
 export clientSecret=$(oc --context ${control_cluster} get secret azure-dns-global-zone-credentials -n global-load-balancer-operator -o jsonpath='{.data.azure_client_secret}' | base64 -d)
 export tenantId=$(oc --context ${control_cluster} get secret azure-dns-global-zone-credentials -n global-load-balancer-operator -o jsonpath='{.data.azure_tenant_id}' | base64 -d)
@@ -464,6 +464,29 @@ export cluster2_secret_name=$(oc --context ${control_cluster} get clusterdeploym
 export cluster3_secret_name=$(oc --context ${control_cluster} get clusterdeployment cluster3 -n cluster3 -o jsonpath='{.spec.clusterMetadata.adminKubeconfigSecretRef.name}')
 envsubst < ./global-load-balancer-operator/azureDNS-dns-zone.yaml | oc --context ${control_cluster} apply -f - -n global-load-balancer-operator
 envsubst < ./global-load-balancer-operator/azureDNS-global-route-discovery.yaml | oc --context ${control_cluster} apply -f - -n global-load-balancer-operator
+```
+
+### Deploy global dns configuration for azure -- traffic manager
+
+```shell
+export namespace=global-load-balancer-operator
+
+export clientId=$(cat ~/.azure/osServicePrincipal.json | jq -r .clientId )
+export clientSecret=$(cat ~/.azure/osServicePrincipal.json | jq -r .clientSecret )
+export tenantId=$(cat ~/.azure/osServicePrincipal.json | jq -r .tenantId )
+export subscriptionId=$(cat ~/.azure/osServicePrincipal.json | jq -r .subscriptionId )
+export resourceGroup=$(oc --context ${control_cluster} get infrastructure cluster -o jsonpath='{.status.platformStatus.azure.networkResourceGroupName}')
+export cluster_base_domain=$(oc --context ${control_cluster} get dns cluster -o jsonpath='{.spec.baseDomain}')
+export global_base_domain=global.${cluster_base_domain#*.}
+export dnsResourceGroup=$(oc --context ${control_cluster} get DNS cluster -o jsonpath='{.spec.publicZone.id}' | cut -f 5 -d "/" -)
+export cluster1_secret_name=$(oc --context ${control_cluster} get clusterdeployment cluster1 -n cluster1 -o jsonpath='{.spec.clusterMetadata.adminKubeconfigSecretRef.name}')
+export cluster2_secret_name=$(oc --context ${control_cluster} get clusterdeployment cluster2 -n cluster2 -o jsonpath='{.spec.clusterMetadata.adminKubeconfigSecretRef.name}')
+export cluster3_secret_name=$(oc --context ${control_cluster} get clusterdeployment cluster3 -n cluster3 -o jsonpath='{.spec.clusterMetadata.adminKubeconfigSecretRef.name}')
+envsubst < ./global-load-balancer-operator/azureDNS-credentials-secret.yaml | oc --context ${control_cluster} apply -f - -n global-load-balancer-operator
+envsubst < ./global-load-balancer-operator/azureDNS-dns-zone-tm.yaml | oc --context ${control_cluster} apply -f - -n global-load-balancer-operator
+envsubst < ./global-load-balancer-operator/azureDNS-global-route-discovery.yaml | oc --context ${control_cluster} apply -f - -n global-load-balancer-operator
+
+
 ```
 
 At this point your architecture should look like the below image:
@@ -533,7 +556,15 @@ If you need to uninstall the clusters, run the following:
 
 ```shell
 for cluster in cluster1 cluster2 cluster3; do
-  oc delete clusterdeployment ${cluster} -n ${cluster}
+  oc --context ${control_cluster} delete clusterdeployment ${cluster} -n ${cluster}
+done
+```
+
+remove the cluster heml charts
+
+```shell
+for cluster in cluster1 cluster2 cluster3; do
+  helm --kube-context ${control_cluster} uninstall ${cluster} -n ${cluster}
 done
 ```
 

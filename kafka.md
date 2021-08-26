@@ -28,8 +28,6 @@ case ${infrastructure} in
     export bandwidth="250000000" #250 MBps
   ;;
 esac
-export cluster_base_domain=$(oc --context ${control_cluster} get dns cluster -o jsonpath='{.spec.baseDomain}')
-export global_base_domain=global.${cluster_base_domain#*.}
 for context in ${cluster1} ${cluster2} ${cluster3}; do
   export cluster=${context}
   envsubst < ./kafka/values.templ.yaml > /tmp/values.yaml
@@ -93,7 +91,7 @@ done
 
 ## Run a performance test
 
-https://gist.github.com/jkreps/c7ddb4041ef62a900e6c
+See also [this](https://gist.github.com/jkreps/c7ddb4041ef62a900e6c)
 
 create a topic
 
@@ -214,7 +212,7 @@ rescale zookeeper pods
 ```shell
 for context in ${cluster1} ${cluster2} ${cluster3}; do
  oc --context ${context} scale statefulset zookeeper --replicas 0 -n kafka
- oc --context ${context} scale statefulset zookeeper --replicas 2 -n kafka
+ oc --context ${context} scale statefulset zookeeper --replicas 3 -n kafka
 done
 ```
 
@@ -226,5 +224,11 @@ delete kafka
 for context in ${cluster1} ${cluster2} ${cluster3}; do
   helm --kube-context ${context} uninstall kafka -n kafka 
   oc --context ${context} delete pvc --all -n kafka
+done
+```
+
+```shell
+for context in ${cluster1} ${cluster2} ${cluster3}; do
+  helm --kube-context ${control_cluster} uninstall kafka-machine-pool -n ${context} 
 done
 ```

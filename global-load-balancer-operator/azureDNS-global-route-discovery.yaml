@@ -22,4 +22,4 @@ spec:
   defaultLoadBalancingPolicy: Multivalue
   defaultTTL: 30 
   globalZoneRef:
-    name: azure-dns-external-dns-zone
+    name: azure-dns-traffic-manager-zone

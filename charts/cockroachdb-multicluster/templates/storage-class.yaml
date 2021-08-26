@@ -1,0 +1,26 @@
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: cockroachdb
+{{ if eq .Values.infrastructure "aws" }}  
+provisioner: kubernetes.io/aws-ebs
+parameters:
+  encrypted: 'true'
+  type: io1
+  iopsPerGB: "50"
+{{ end }}
+{{ if eq .Values.infrastructure "gcp" }}  
+provisioner: pd.csi.storage.gke.io
+parameters:
+  replication-type: none
+  type: pd-ssd
+{{ end }} 
+{{ if eq .Values.infrastructure "azure" }}  
+provisioner: kubernetes.io/azure-disk
+parameters:
+  kind: Managed
+  storageaccounttype: Premium_LRS
+{{ end }} 
+reclaimPolicy: Delete
+allowVolumeExpansion: true
+volumeBindingMode: WaitForFirstConsumer

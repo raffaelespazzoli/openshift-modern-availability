@@ -7,18 +7,11 @@ In this step we are going to deploy a nine node cockroachdb cluster
 ### Create adequate nodes
 
 ```shell
-for context in ${cluster1} ${cluster2} ${cluster3}; do
-  export cluster_name=$(oc --context ${context} get infrastructure cluster -o jsonpath='{.status.infrastructureName}')
-  export region=$(oc --context ${context} get infrastructure cluster -o jsonpath='{.status.platformStatus.aws.region}')
-  export ami=$(oc --context ${context} get machineset -n openshift-machine-api -o jsonpath='{.items[0].spec.template.spec.providerSpec.value.ami.id}')
-  export machine_type=cockroach
-  export instance_type=c5d.4xlarge
-  for z in a b c; do
-    export zone=${region}${z}
-    oc --context ${context} scale machineset -n openshift-machine-api $(envsubst < ./cockroachdb/machineset.yaml | yq -r .metadata.name) --replicas 0 
-    envsubst < ./cockroachdb/machineset.yaml | oc --context ${context} apply -f -
-  done
-  oc --context ${context} apply -f ./cockroachdb/storage-class.yaml
+export infrastructure=$(oc get infrastructure cluster -o jsonpath='{.spec.platformSpec.type}'| tr '[:upper:]' '[:lower:]')
+for cluster in ${cluster1} ${cluster2} ${cluster3}; do
+  helm --kube-context ${control_cluster} uninstall cockroach-machine-pool -n ${cluster}
+  envsubst < ./cockroachdb/machinepool-values.templ.yaml > /tmp/values.yaml 
+  helm --kube-context ${control_cluster} upgrade cockroach-machine-pool ./charts/machine-pool -n ${cluster} --atomic -i -f /tmp/values.yaml
 done
 ```
 
@@ -28,8 +21,7 @@ this is a good source of info for fixing the crdb helm chart with regards to per
 https://github.com/kubernetes/kubernetes/issues/34982
 
 ```shell
-#helm repo add cockroachdb https://charts.cockroachdb.com/
-#helm dependency update ./charts/vault-multicluster
+export infrastructure=$(oc --context ${control_cluster} get infrastructure cluster -o jsonpath='{.spec.platformSpec.type}'| tr '[:upper:]' '[:lower:]')
 export cluster_base_domain=$(oc --context ${control_cluster} get dns cluster -o jsonpath='{.spec.baseDomain}')
 export global_base_domain=global.${cluster_base_domain#*.}
 for context in ${cluster1} ${cluster2} ${cluster3}; do
@@ -37,7 +29,6 @@ for context in ${cluster1} ${cluster2} ${cluster3}; do
   export uid=$(oc --context ${context} get project cockroachdb -o jsonpath='{.metadata.annotations.openshift\.io/sa\.scc\.uid-range}'|sed 's/\/.*//')
   export guid=$(oc --context ${context} get project cockroachdb -o jsonpath='{.metadata.annotations.openshift\.io/sa\.scc\.supplemental-groups}'|sed 's/\/.*//')
   export cluster=${context}
-  export region=$(oc --context ${context} get infrastructure cluster -o jsonpath='{.status.platformStatus.aws.region}')
   envsubst < ./cockroachdb/values.templ.yaml > /tmp/values.yaml
   helm --kube-context ${context} upgrade cockroachdb ./charts/cockroachdb-multicluster -i --create-namespace -n cockroachdb -f /tmp/values.yaml
 done
@@ -57,6 +48,24 @@ oc --context ${cluster1} exec $tools_pod -c tools -n cockroachdb -- /cockroach/c
 export tools_pod=$(oc --context ${cluster1} get pods -n cockroachdb | grep tools | awk '{print $1}')
 oc --context ${cluster1} exec $tools_pod -c tools -n cockroachdb -- /cockroach/cockroach sql --execute='CREATE USER dba WITH PASSWORD dba;' --certs-dir=/crdb-certs --host cockroachdb-0.cluster1.cockroachdb.cockroachdb.svc.clusterset.local
 oc --context ${cluster1} exec $tools_pod -c tools -n cockroachdb -- /cockroach/cockroach sql --execute='GRANT admin TO dba WITH ADMIN OPTION;' --certs-dir=/crdb-certs --host cockroachdb-0.cluster1.cockroachdb.cockroachdb.svc.clusterset.local
+```
+
+### Create global dns entry -- gcp only
+
+```shell
+IPs=""
+for cluster in ${cluster1} ${cluster2} ${cluster3}; do
+  IP=$(oc --context ${cluster} get svc router-default -n openshift-ingress -o jsonpath='{.status.loadBalancer.ingress[].ip}')
+  echo $IP
+  IPs+=${IP},
+done
+IPs="${IPs%,}"
+export cluster_base_domain=$(oc --context ${control_cluster} get dns cluster -o jsonpath='{.spec.baseDomain}')
+export base_domain=${cluster_base_domain#*.}
+export global_base_domain=global.${cluster_base_domain#*.}
+export global_base_domain_no_dots=$(echo ${global_base_domain} | tr '.' '-')
+gcloud dns record-sets delete cockroachdb.global.demo.gcp.red-chesterfield.com --type=A --zone=${global_base_domain_no_dots}
+gcloud dns record-sets create cockroachdb.global.demo.gcp.red-chesterfield.com --rrdatas=${IPs} --type=A --ttl=60 --zone=${global_base_domain_no_dots}
 ```
 
 ### Connecting to the CRDB ui
@@ -82,15 +91,87 @@ oc --context ${cluster1} exec $tools_pod -c tools -n cockroachdb -- /cockroach/c
 oc --context ${cluster1} exec $tools_pod -c tools -n cockroachdb -- /cockroach/cockroach sql  --certs-dir=/crdb-certs --host cockroachdb-0.cluster1.cockroachdb.cockroachdb.svc.clusterset.local --echo-sql --execute='SET CLUSTER SETTING enterprise.license = '\""${enterprise_license}"\"';'
 ```
 
-### Insert region locations
+### insert region locations -- aws
 
 ```shell
 export tools_pod=$(oc --context ${cluster1} get pods -n cockroachdb | grep tools | awk '{print $1}')
-oc --context ${cluster1} exec $tools_pod -c tools -n cockroachdb -- /cockroach/cockroach sql  --certs-dir=/crdb-certs --host cockroachdb-0.cluster1.cockroachdb.cockroachdb.svc.clusterset.local --echo-sql --execute="UPSERT into system.locations VALUES ('region', 'us-east-1', 37.478397, -76.453077); UPSERT into system.locations VALUES ('region', 'us-east-2', 40.417287, -76.453077); UPSERT into system.locations VALUES ('region', 'us-west-1', 38.837522, -120.895824); UPSERT into system.locations VALUES ('region', 'us-west-2', 43.804133, -120.554201); UPSERT into system.locations VALUES ('region', 'ca-central-1', 56.130366, -106.346771); UPSERT into system.locations VALUES ('region', 'eu-central-1', 50.110922, 8.682127); UPSERT into system.locations VALUES ('region', 'eu-west-1', 53.142367, -7.692054); UPSERT into system.locations VALUES ('region', 'eu-west-2', 51.507351, -0.127758); UPSERT into system.locations VALUES ('region', 'eu-west-3', 48.856614, 2.352222); UPSERT into system.locations VALUES ('region', 'ap-northeast-1', 35.689487, 139.691706); UPSERT into system.locations VALUES ('region', 'ap-northeast-2', 37.566535, 126.977969); UPSERT into system.locations VALUES ('region', 'ap-northeast-3', 34.693738, 135.502165); UPSERT into system.locations VALUES ('region', 'ap-southeast-1', 1.352083, 103.819836); UPSERT into system.locations VALUES ('region', 'ap-southeast-2', -33.86882, 151.209296); UPSERT into system.locations VALUES ('region', 'ap-south-1', 19.075984, 72.877656); UPSERT into system.locations VALUES ('region', 'sa-east-1', -23.55052, -46.633309);"
+oc --context ${cluster1} exec $tools_pod -c tools -n cockroachdb -- /cockroach/cockroach sql  --certs-dir=/crdb-certs --host cockroachdb-0.cluster1.cockroachdb.cockroachdb.svc.clusterset.local --echo-sql --execute="\
+UPSERT into system.locations VALUES ('region', 'us-east-1', 37.478397, -76.453077); \
+UPSERT into system.locations VALUES ('region', 'us-east-2', 40.417287, -76.453077); \
+UPSERT into system.locations VALUES ('region', 'us-west-1', 38.837522, -120.895824); \
+UPSERT into system.locations VALUES ('region', 'us-west-2', 43.804133, -120.554201); \
+UPSERT into system.locations VALUES ('region', 'ca-central-1', 56.130366, -106.346771); \
+UPSERT into system.locations VALUES ('region', 'eu-central-1', 50.110922, 8.682127); \
+UPSERT into system.locations VALUES ('region', 'eu-west-1', 53.142367, -7.692054); \
+UPSERT into system.locations VALUES ('region', 'eu-west-2', 51.507351, -0.127758); \
+UPSERT into system.locations VALUES ('region', 'eu-west-3', 48.856614, 2.352222); \
+UPSERT into system.locations VALUES ('region', 'ap-northeast-1', 35.689487, 139.691706); \
+UPSERT into system.locations VALUES ('region', 'ap-northeast-2', 37.566535, 126.977969); \
+UPSERT into system.locations VALUES ('region', 'ap-northeast-3', 34.693738, 135.502165); \
+UPSERT into system.locations VALUES ('region', 'ap-southeast-1', 1.352083, 103.819836); \
+UPSERT into system.locations VALUES ('region', 'ap-southeast-2', -33.86882, 151.209296); \
+UPSERT into system.locations VALUES ('region', 'ap-south-1', 19.075984, 72.877656); \
+UPSERT into system.locations VALUES ('region', 'sa-east-1', -23.55052, -46.633309);"
 oc --context ${cluster1} exec $tools_pod -c tools -n cockroachdb -- /cockroach/cockroach sql  --certs-dir=/crdb-certs --host cockroachdb-0.cluster1.cockroachdb.cockroachdb.svc.clusterset.local --echo-sql --execute="SELECT * FROM system.locations;"
+```
 
+### insert region locations -- gcp
 
-oc --context ${cluster1} exec $tools_pod -c tools -n cockroachdb -- /cockroach/cockroach sql  --certs-dir=/crdb-certs --host cockroachdb-0.cluster1.cockroachdb.cockroachdb.svc.clusterset.local --echo-sql --execute="UPSERT into system.locations VALUES ('zone', 'us-east-1', 37.478397, -76.453077); UPSERT into system.locations VALUES ('zone', 'us-east-2', 40.417287, -76.453077); UPSERT into system.locations VALUES ('zone', 'us-west-1', 38.837522, -120.895824); UPSERT into system.locations VALUES ('zone', 'us-west-2', 43.804133, -120.554201); UPSERT into system.locations VALUES ('zone', 'ca-central-1', 56.130366, -106.346771); UPSERT into system.locations VALUES ('zone', 'eu-central-1', 50.110922, 8.682127); UPSERT into system.locations VALUES ('zone', 'eu-west-1', 53.142367, -7.692054); UPSERT into system.locations VALUES ('zone', 'eu-west-2', 51.507351, -0.127758); UPSERT into system.locations VALUES ('zone', 'eu-west-3', 48.856614, 2.352222); UPSERT into system.locations VALUES ('zone', 'ap-northeast-1', 35.689487, 139.691706); UPSERT into system.locations VALUES ('zone', 'ap-northeast-2', 37.566535, 126.977969); UPSERT into system.locations VALUES ('zone', 'ap-northeast-3', 34.693738, 135.502165); UPSERT into system.locations VALUES ('zone', 'ap-southeast-1', 1.352083, 103.819836); UPSERT into system.locations VALUES ('zone', 'ap-southeast-2', -33.86882, 151.209296); UPSERT into system.locations VALUES ('zone', 'ap-south-1', 19.075984, 72.877656); UPSERT into system.locations VALUES ('zone', 'sa-east-1', -23.55052, -46.633309);"
+```shell
+export tools_pod=$(oc --context ${cluster1} get pods -n cockroachdb | grep tools | awk '{print $1}')
+oc --context ${cluster1} exec $tools_pod -c tools -n cockroachdb -- /cockroach/cockroach sql  --certs-dir=/crdb-certs --host cockroachdb-0.cluster1.cockroachdb.cockroachdb.svc.clusterset.local --echo-sql --execute=" \
+UPSERT into system.locations VALUES ('region', 'us-east1', 33.836082, -81.163727); \
+UPSERT into system.locations VALUES ('region', 'us-east4', 37.478397, -76.453077); \
+UPSERT into system.locations VALUES ('region', 'us-central1', 42.032974, -93.581543); \
+UPSERT into system.locations VALUES ('region', 'us-west1', 43.804133, -120.554201); \
+UPSERT into system.locations VALUES ('region', 'northamerica-northeast1', 56.130366, -106.346771); \
+UPSERT into system.locations VALUES ('region', 'europe-west1', 50.44816, 3.81886); \
+UPSERT into system.locations VALUES ('region', 'europe-west2', 51.507351, -0.127758); \
+UPSERT into system.locations VALUES ('region', 'europe-west3', 50.110922, 8.682127); \
+UPSERT into system.locations VALUES ('region', 'europe-west4', 53.4386, 6.8355); \
+UPSERT into system.locations VALUES ('region', 'europe-west6', 47.3769, 8.5417); \
+UPSERT into system.locations VALUES ('region', 'asia-east1', 24.0717, 120.5624); \
+UPSERT into system.locations VALUES ('region', 'asia-northeast1', 35.689487, 139.691706); \
+UPSERT into system.locations VALUES ('region', 'asia-southeast1', 1.352083, 103.819836); \
+UPSERT into system.locations VALUES ('region', 'australia-southeast1', -33.86882, 151.209296); \
+UPSERT into system.locations VALUES ('region', 'asia-south1', 19.075984, 72.877656); \
+UPSERT into system.locations VALUES ('region', 'southamerica-east1', -23.55052, -46.633309);"
+oc --context ${cluster1} exec $tools_pod -c tools -n cockroachdb -- /cockroach/cockroach sql  --certs-dir=/crdb-certs --host cockroachdb-0.cluster1.cockroachdb.cockroachdb.svc.clusterset.local --echo-sql --execute="SELECT * FROM system.locations;"
+```
+
+### insert region locations -- azure
+
+```shell
+export tools_pod=$(oc --context ${cluster1} get pods -n cockroachdb | grep tools | awk '{print $1}')
+oc --context ${cluster1} exec $tools_pod -c tools -n cockroachdb -- /cockroach/cockroach sql  --certs-dir=/crdb-certs --host cockroachdb-0.cluster1.cockroachdb.cockroachdb.svc.clusterset.local --echo-sql --execute=" \
+UPSERT into system.locations VALUES ('region', 'eastasia', 22.267, 114.188); \
+UPSERT into system.locations VALUES ('region', 'southeastasia', 1.283, 103.833); \
+UPSERT into system.locations VALUES ('region', 'centralus', 41.5908, -93.6208); \
+UPSERT into system.locations VALUES ('region', 'eastus', 37.3719, -79.8164); \
+UPSERT into system.locations VALUES ('region', 'eastus2', 36.6681, -78.3889); \
+UPSERT into system.locations VALUES ('region', 'westus', 37.783, -122.417); \
+UPSERT into system.locations VALUES ('region', 'northcentralus', 41.8819, -87.6278); \
+UPSERT into system.locations VALUES ('region', 'southcentralus', 29.4167, -98.5); \
+UPSERT into system.locations VALUES ('region', 'northeurope', 53.3478, -6.2597); \
+UPSERT into system.locations VALUES ('region', 'westeurope', 52.3667, 4.9); \
+UPSERT into system.locations VALUES ('region', 'japanwest', 34.6939, 135.5022); \
+UPSERT into system.locations VALUES ('region', 'japaneast', 35.68, 139.77); \
+UPSERT into system.locations VALUES ('region', 'brazilsouth', -23.55, -46.633); \
+UPSERT into system.locations VALUES ('region', 'australiaeast', -33.86, 151.2094); \
+UPSERT into system.locations VALUES ('region', 'australiasoutheast', -37.8136, 144.9631); \
+UPSERT into system.locations VALUES ('region', 'southindia', 12.9822, 80.1636); \
+UPSERT into system.locations VALUES ('region', 'centralindia', 18.5822, 73.9197); \
+UPSERT into system.locations VALUES ('region', 'westindia', 19.088, 72.868); \
+UPSERT into system.locations VALUES ('region', 'canadacentral', 43.653, -79.383); \
+UPSERT into system.locations VALUES ('region', 'canadaeast', 46.817, -71.217); \
+UPSERT into system.locations VALUES ('region', 'uksouth', 50.941, -0.799); \
+UPSERT into system.locations VALUES ('region', 'ukwest', 53.427, -3.084); \
+UPSERT into system.locations VALUES ('region', 'westcentralus', 40.890, -110.234); \
+UPSERT into system.locations VALUES ('region', 'westus2', 47.233, -119.852); \
+UPSERT into system.locations VALUES ('region', 'koreacentral', 37.5665, 126.9780); \
+UPSERT into system.locations VALUES ('region', 'koreasouth', 35.1796, 129.0756); \
+UPSERT into system.locations VALUES ('region', 'francecentral', 46.3772, 2.3730); \
+UPSERT into system.locations VALUES ('region', 'francesouth', 43.8345, 2.1972);"
 oc --context ${cluster1} exec $tools_pod -c tools -n cockroachdb -- /cockroach/cockroach sql  --certs-dir=/crdb-certs --host cockroachdb-0.cluster1.cockroachdb.cockroachdb.svc.clusterset.local --echo-sql --execute="SELECT * FROM system.locations;"
 ```
 
@@ -103,8 +184,51 @@ https://github.com/jhatcher9999/tpcc-distributed-k8s
 refer also to this: https://github.com/jhatcher9999/tpcc-distributed-k8s
 
 ```shell
-oc --context ${cluster1} delete pod tpcc-loader -n cockroachdb
-oc --context ${cluster1} run tpcc-loader -n cockroachdb -ti --image=mgoddard/crdb-workload:1.0 --restart='Never' -- /cockroach/workload init tpcc postgresql://dba:dba@cockroachdb-public.cockroachdb.svc.cluster.local:26257?sslmode=require --warehouses 1000 --partition-affinity=0 --partitions=3 --partition-strategy=leases --drop --zones=us-east-1,us-east-2,us-west-2 --deprecated-fk-indexes
+oc --context ${cluster1} exec ${tools_pod} -c tools -n cockroachdb -- /cockroach/cockroach workload fixtures import tpcc --warehouses=10 --replicate-static-columns 'postgresql://dba:dba@cockroachdb-public.cockroachdb.svc.cluster.local:26257?sslmode=require'
+
+export infrastructure=$(oc --context ${control_cluster} get infrastructure cluster -o jsonpath='{.spec.platformSpec.type}'| tr '[:upper:]' '[:lower:]')
+case ${infrastructure} in
+  aws)
+    export main_region=us-east-1
+    export secondary_regions=( us-east-2 us-west-2 )
+  ;;
+  gcp)
+    export main_region=us-east4
+    export secondary_regions=( us-central1 us-west1 )
+  ;;
+  azure)
+    export main_region=eastus2
+    export secondary_regions=( centralus westus2 )
+  ;;
+esac
+
+
+
+oc --context ${cluster1} exec ${tools_pod} -c tools -n cockroachdb -- /cockroach/cockroach sql  --certs-dir=/crdb-certs --host cockroachdb-0.cluster1.cockroachdb.cockroachdb.svc.clusterset.local --echo-sql --execute="ALTER DATABASE tpcc PRIMARY REGION "'"'"${main_region}"'"'";"
+
+for secondary_region in ${secondary_regions[@]}; do
+  oc --context ${cluster1} exec ${tools_pod} -c tools -n cockroachdb -- /cockroach/cockroach sql  --certs-dir=/crdb-certs --host cockroachdb-0.cluster1.cockroachdb.cockroachdb.svc.clusterset.local --echo-sql --execute="ALTER DATABASE tpcc ADD REGION "'"'"${secondary_region}"'"'";"
+done  
+
+oc --context ${cluster1} exec ${tools_pod} -c tools -n cockroachdb -- /cockroach/cockroach sql  --certs-dir=/crdb-certs --host cockroachdb-0.cluster1.cockroachdb.cockroachdb.svc.clusterset.local --echo-sql --execute="ALTER DATABASE tpcc SURVIVE REGION FAILURE;"
+
+oc --context ${cluster1} exec ${tools_pod} -c tools -n cockroachdb -- /cockroach/cockroach sql  --certs-dir=/crdb-certs --host cockroachdb-0.cluster1.cockroachdb.cockroachdb.svc.clusterset.local --echo-sql --execute="SHOW REGIONS FROM DATABASE tpcc;"
+
+export tools_pod=$(oc --context cluster1 get pods -n cockroachdb | grep tools | awk '{print $1}')
+oc --context ${cluster1} exec ${tools_pod} -c tools -n cockroachdb -- /cockroach/cockroach workload init tpcc postgresql://dba:dba@cockroachdb-public.cockroachdb.svc.cluster.local:26257?sslmode=require --warehouses 2500 --partition-affinity=0 --partitions=3 --partition-strategy=leases --drop --replicate-static-columns
+
+
+
+
+#initialize workload
+
+
+
+#note %2F equals '/ 
+
+#Kick off workload
+oc --context ${cluster1} exec ${tools_pod} -c tools -n cockroachdb -- /cockroach/cockroach workload run tpcc --warehouses=10 'postgresql://dba:dba@cockroachdb-public.cockroachdb.svc.cluster.local:26257?sslmode=require' 
+
 ```
 
 This can take about three hours to complete.
@@ -239,6 +363,6 @@ delete crdb
 ```shell
 for context in ${cluster1} ${cluster2} ${cluster3}; do
   helm --kube-context ${context} uninstall cockroachdb -n cockroachdb 
-  oc --context ${context} delete pvc datadir-cockroachdb-0 datadir-cockroachdb-1 datadir-cockroachdb-2 -n cockroachdb
+  oc --context ${context} delete pvc --all -n cockroachdb
 done
 ```

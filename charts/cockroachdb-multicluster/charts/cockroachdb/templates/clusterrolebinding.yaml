@@ -20,4 +20,18 @@ subjects:
   - kind: ServiceAccount
     name: {{ template "cockroachdb.tls.serviceAccount.name" . }}
     namespace: {{ .Release.Namespace | quote }}
+---
 {{- end }}
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: cockroachdb-topology-reader
+subjects:
+subjects:
+  - kind: ServiceAccount
+    name: {{ template "cockroachdb.tls.serviceAccount.name" . }}
+    namespace: {{ .Release.Namespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: system:node-reader

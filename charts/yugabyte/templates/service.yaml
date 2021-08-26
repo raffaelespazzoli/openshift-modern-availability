@@ -234,6 +234,7 @@ spec:
       {{ end }}      
       - name: "topology-discovery"
         image: registry.redhat.io/openshift4/ose-cli:latest
+        imagePullPolicy: IfNotPresent
         volumeMounts:
         - name: topology-conf
           mountPath: /topology-conf
@@ -246,11 +247,12 @@ spec:
         - bash
         - -c
         - | 
-          echo export region=$(oc get node ${NODE} -o jsonpath='{.metadata.labels.failure-domain\.beta\.kubernetes\.io/region}') >> /topology-conf/topology.conf && \
-          echo export zone=$(oc get node ${NODE} -o jsonpath='{.metadata.labels.failure-domain\.beta\.kubernetes\.io/zone}') >> /topology-conf/topology.conf && \
+          echo export region=$(oc get node ${NODE} -o jsonpath='{.metadata.labels.topology\.kubernetes\.io/region}') >> /topology-conf/topology.conf && \
+          echo export zone=$(oc get node ${NODE} -o jsonpath='{.metadata.labels.topology\.kubernetes\.io/zone}') >> /topology-conf/topology.conf && \
           cat /topology-conf/topology.conf
       - name: "certs-config"
         image: registry.redhat.io/openshift4/ose-cli:latest
+        imagePullPolicy: IfNotPresent
         volumeMounts:
         - name: certs
           mountPath: /certs
@@ -364,10 +366,10 @@ spec:
             --stderrthreshold=0
             --num_cpus={{ ceil $root.Values.resource.master.requests.cpu }}
             --undefok=num_cpus,enable_ysql
-            --placement_cloud=aws
+            --placement_cloud={{ $root.Values.infrastructure }}
             --placement_region=${region}
-            {{- /* --placement_zone=${zone} */}}
-            --placement_zone=${region}-zone          
+            --placement_zone=${zone}
+            {{- /*- --placement_zone=${region}-${zone} */}}          
           {{- if $root.Values.tls.enabled }}
             --certs_dir=/opt/certs/yugabyte
             --use_node_to_node_encryption=true
@@ -376,6 +378,7 @@ spec:
         {{ else }}
             /home/yugabyte/bin/yb-tserver
             --fs_data_dirs={{ template "yugabyte.fs_data_dirs" $storageInfo }}
+            --use_node_hostname_for_local_tserver=true
             --server_broadcast_addresses={{ printf "$(HOSTNAME).%s.%s.$(NAMESPACE).svc.%s"  $root.Values.cluster .name $root.Values.domainName }}:9100
           {{- if $root.Values.istioCompatibility.enabled }}
             --rpc_bind_addresses=0.0.0.0:9100
@@ -407,10 +410,10 @@ spec:
             --stderrthreshold=0
             --num_cpus={{ ceil $root.Values.resource.tserver.requests.cpu }}
             --undefok=num_cpus,enable_ysql
-            --placement_cloud=aws
+            --placement_cloud={{ $root.Values.infrastructure }}
             --placement_region=${region}
-            {{- /* --placement_zone=${zone} */}}
-            --placement_zone=${region}-zone           
+            --placement_zone=${zone}
+            {{- /*- --placement_zone=${region}-${zone} */}}           
           {{- if $root.Values.tls.enabled }}
             --certs_dir=/opt/certs/yugabyte
             --use_node_to_node_encryption=true
@@ -445,6 +448,7 @@ spec:
       {{ if not $root.Values.storage.ephemeral }}
       - name: yb-cleanup
         image: busybox:1.31
+        imagePullPolicy: IfNotPresent
         env:
         - name: USER
           value: "yugabyte"
