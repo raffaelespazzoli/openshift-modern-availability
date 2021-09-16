@@ -6,7 +6,7 @@ spec:
   source:
     git: 
       uri: "https://github.com/yugabyte/tpcc"
-      ref: "master"
+      ref: "failurefix"
   strategy:
     sourceStrategy:
       from:
@@ -69,7 +69,7 @@ data:
     <parameters>
         <dbtype>postgres</dbtype>
         <driver>org.postgresql.Driver</driver>
-        <jdbcURL>jdbc:postgresql://yb-tservers-service.yugabyte.svc:5433/yugabyte?ssl=true&amp;sslmode=require&amp;sslrootcert=/certs/ca.crt&amp;sslcert=/certs/tls.crt&amp;sslkey=/certs/key.pk8&amp;sslpassword=changeit</jdbcURL>
+        <!-- <jdbcURL>jdbc:postgresql://yb-tservers-service.yugabyte.svc:5433/yugabyte?ssl=true&amp;sslmode=require&amp;sslrootcert=/certs/ca.crt&amp;sslcert=/certs/tls.crt&amp;sslkey=/certs/key.pk8&amp;sslpassword=changeit</jdbcURL> -->
         <username>yugabyte</username>
         <sslCert>/certs/tls.crt</sslCert>
         <sslKey>/certs/key.pk8</sslKey>
@@ -110,14 +110,14 @@ data:
             </transaction>
         </transactiontypes>
 
-        <runtime>1800</runtime>
+        <runtime>3600</runtime>
         <rate>10000</rate>
         <!--
           Set the number of retries to 0 as retrying when the number of warehouses is
           high is pointless as it just leads to more failures.
         -->
-        <maxRetriesPerTransaction>2</maxRetriesPerTransaction>
-        <maxLoaderRetries>2</maxLoaderRetries>
+        <maxRetriesPerTransaction>5</maxRetriesPerTransaction>
+        <maxLoaderRetries>5</maxLoaderRetries>
         
     </parameters>
   log4j.properties: | 
@@ -170,6 +170,55 @@ data:
     ! Log only the SQL that is executed.
     log4j.logger.jdbc.sqlonly=DEBUG,A1
     log4j.additivity.jdbc.sqlonly=false
+  geopartitioned_workload.xml: |
+    <?xml version="1.0"?>
+    <parameters>
+        <enableGeoPartitionedWorkload>false</enableGeoPartitionedWorkload>
+        <numberOfPartitions>2</numberOfPartitions>
+        <tablespaces>
+            <tablespace>
+                <name>tablespace0</name>
+                <storeItemTable>true</storeItemTable>
+                <storePartitionedTables>true</storePartitionedTables>
+                <storePartitions>false</storePartitions>
+                <replicationFactor>1</replicationFactor>
+                <placementPolicy>
+                    <placementBlock>
+                        <cloud>aws</cloud>
+                        <region>us-west-2</region>
+                        <zone>us-west-2a0</zone>
+                        <minReplicationFactor>1</minReplicationFactor>
+                    </placementBlock>
+                </placementPolicy>
+            </tablespace>
+            <tablespace>
+                <name>tablespace1</name>
+                <replicationFactor>1</replicationFactor>
+                <storePartitions>true</storePartitions>
+                <placementPolicy>
+                    <placementBlock>
+                        <cloud>aws</cloud>
+                        <region>us-west-2</region>
+                        <zone>us-west-2a1</zone>
+                        <minReplicationFactor>1</minReplicationFactor>
+                    </placementBlock>
+                </placementPolicy>
+            </tablespace>
+            <tablespace>
+                <name>tablespace2</name>
+                <storePartitions>true</storePartitions>
+                <replicationFactor>1</replicationFactor>
+                <placementPolicy>
+                    <placementBlock>
+                        <cloud>aws</cloud>
+                        <region>us-west-2</region>
+                        <zone>us-west-2a2</zone>
+                        <minReplicationFactor>1</minReplicationFactor>
+                    </placementBlock>
+                </placementPolicy>
+            </tablespace>
+        </tablespaces>
+    </parameters>    
 ---
 kind: Service
 apiVersion: v1

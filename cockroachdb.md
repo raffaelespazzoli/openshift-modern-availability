@@ -184,7 +184,9 @@ https://github.com/jhatcher9999/tpcc-distributed-k8s
 refer also to this: https://github.com/jhatcher9999/tpcc-distributed-k8s
 
 ```shell
-oc --context ${cluster1} exec ${tools_pod} -c tools -n cockroachdb -- /cockroach/cockroach workload fixtures import tpcc --warehouses=10 --replicate-static-columns 'postgresql://dba:dba@cockroachdb-public.cockroachdb.svc.cluster.local:26257?sslmode=require'
+oc --context ${cluster1} exec ${tools_pod} -c tools -n cockroachdb -- /cockroach/cockroach sql  --certs-dir=/crdb-certs --host cockroachdb-0.cluster1.cockroachdb.cockroachdb.svc.clusterset.local --echo-sql --execute="DROP DATABASE IF EXISTS tpcc CASCADE;"
+
+oc --context ${cluster1} exec ${tools_pod} -c tools -n cockroachdb -- /cockroach/cockroach workload fixtures import tpcc --warehouses=2500 --replicate-static-columns 'postgresql://dba:dba@cockroachdb-public.cockroachdb.svc.cluster.local:26257?sslmode=require'
 
 export infrastructure=$(oc --context ${control_cluster} get infrastructure cluster -o jsonpath='{.spec.platformSpec.type}'| tr '[:upper:]' '[:lower:]')
 case ${infrastructure} in
@@ -218,16 +220,15 @@ export tools_pod=$(oc --context cluster1 get pods -n cockroachdb | grep tools | 
 oc --context ${cluster1} exec ${tools_pod} -c tools -n cockroachdb -- /cockroach/cockroach workload init tpcc postgresql://dba:dba@cockroachdb-public.cockroachdb.svc.cluster.local:26257?sslmode=require --warehouses 2500 --partition-affinity=0 --partitions=3 --partition-strategy=leases --drop --replicate-static-columns
 
 
+oc --context ${cluster1} exec ${tools_pod} -c tools -n cockroachdb -- /cockroach/cockroach sql  --certs-dir=/crdb-certs --host cockroachdb-0.cluster1.cockroachdb.cockroachdb.svc.clusterset.local --echo-sql --execute="SELECT * FROM [SHOW RANGES FROM database tpcc] WHERE 'start_key' NOT LIKE '%Prefix%';"
+
 
 
 #initialize workload
 
 
-
-#note %2F equals '/ 
-
 #Kick off workload
-oc --context ${cluster1} exec ${tools_pod} -c tools -n cockroachdb -- /cockroach/cockroach workload run tpcc --warehouses=10 'postgresql://dba:dba@cockroachdb-public.cockroachdb.svc.cluster.local:26257?sslmode=require' 
+oc --context ${cluster1} exec ${tools_pod} -c tools -n cockroachdb -- /cockroach/cockroach workload run tpcc --warehouses=10 --duration=10m 'postgresql://dba:dba@cockroachdb-public.cockroachdb.svc.cluster.local:26257?sslmode=require' 
 
 ```
 
@@ -258,43 +259,6 @@ export tools_pod=$(oc --context cluster3 get pods -n cockroachdb | grep tools | 
 oc --context cluster3 exec $tools_pod -c tools -n cockroachdb -- /cockroach/cockroach workload run tpcc postgresql://dba:dba@cockroachdb-public.cockroachdb.svc.cluster.local:26257?sslmode=require --duration=60m --warehouses 1000 --ramp=180s --partition-affinity=2 --partitions=3 --partition-strategy=leases --split --scatter --tolerate-errors | tee ./cluster3.log
 ```
 
-<!--
-## Run the ycsb test
-
-load the data
-
-```shell
-export tools_pod=$(oc --context cluster1 get pods -n cockroachdb | grep tools | awk '{print $1}')
-oc --context ${cluster1} exec $tools_pod -c tools -n cockroachdb -- /cockroach/cockroach workload init ycsb  --drop postgresql://dba:dba@cockroachdb-public.cockroachdb.svc.cluster.local:26257?sslmode=require
-```
-
---splits=50
-
-Run the test
-
-in terminal one run
-
-```shell
-export tools_pod=$(oc --context cluster1 get pods -n cockroachdb | grep tools | awk '{print $1}')
-oc --context cluster1 exec $tools_pod -c tools -n cockroachdb -- /cockroach/cockroach workload run ycsb --ramp=3m --duration=20m  --tolerate-errors postgresql://dba:dba@cockroachdb-public.cockroachdb.svc.cluster.local:26257?sslmode=require  | tee ./yscb_cluster1.log
-```
-
---concurrency=3 --max-rate=1000
-
-in terminal two run:
-
-```shell
-export tools_pod=$(oc --context cluster2 get pods -n cockroachdb | grep tools | awk '{print $1}')
-oc --context cluster2 exec $tools_pod -c tools -n cockroachdb -- /cockroach/cockroach workload run ycsb --ramp=3m --duration=20m  --tolerate-errors postgresql://dba:dba@cockroachdb-public.cockroachdb.svc.cluster.local:26257?sslmode=require  | tee ./yscb_cluster2.log
-```
-  
-in terminal three run
-
-```shell
-export tools_pod=$(oc --context cluster3 get pods -n cockroachdb | grep tools | awk '{print $1}')
-oc --context cluster3 exec $tools_pod -c tools -n cockroachdb -- /cockroach/cockroach workload run ycsb --ramp=3m --duration=20m  --tolerate-errors postgresql://dba:dba@cockroachdb-public.cockroachdb.svc.cluster.local:26257?sslmode=require  | tee ./yscb_cluster3.log
-```
--->
 ## Run the disaster recovery test
 
 Run the tpcc test as described above.

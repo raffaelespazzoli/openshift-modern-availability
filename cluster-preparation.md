@@ -485,8 +485,21 @@ export cluster3_secret_name=$(oc --context ${control_cluster} get clusterdeploym
 envsubst < ./global-load-balancer-operator/azureDNS-credentials-secret.yaml | oc --context ${control_cluster} apply -f - -n global-load-balancer-operator
 envsubst < ./global-load-balancer-operator/azureDNS-dns-zone-tm.yaml | oc --context ${control_cluster} apply -f - -n global-load-balancer-operator
 envsubst < ./global-load-balancer-operator/azureDNS-global-route-discovery.yaml | oc --context ${control_cluster} apply -f - -n global-load-balancer-operator
+```
 
+### Deploy global dns configuration for gcp -- global ip
 
+```shell
+export namespace=global-load-balancer-operator
+export cluster_base_domain=$(oc --context ${control_cluster} get dns cluster -o jsonpath='{.spec.baseDomain}')
+export base_domain=${cluster_base_domain#*.}
+export global_base_domain=global.${cluster_base_domain#*.}
+export global_zone_name=$(echo ${global_base_domain} | tr '.' '-')
+export cluster1_secret_name=$(oc --context ${control_cluster} get clusterdeployment cluster1 -n cluster1 -o jsonpath='{.spec.clusterMetadata.adminKubeconfigSecretRef.name}')
+export cluster2_secret_name=$(oc --context ${control_cluster} get clusterdeployment cluster2 -n cluster2 -o jsonpath='{.spec.clusterMetadata.adminKubeconfigSecretRef.name}')
+export cluster3_secret_name=$(oc --context ${control_cluster} get clusterdeployment cluster3 -n cluster3 -o jsonpath='{.spec.clusterMetadata.adminKubeconfigSecretRef.name}')
+envsubst < ./global-load-balancer-operator/gcpglb-dns-zone.yaml | oc --context ${control_cluster} apply -f -
+envsubst < ./global-load-balancer-operator/gcpglb-global-route-discovery.yaml | oc --context ${control_cluster} apply -f - -n ${namespace}
 ```
 
 At this point your architecture should look like the below image:

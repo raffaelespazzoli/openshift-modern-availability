@@ -142,6 +142,13 @@ export global_base_domain=global.${cluster_base_domain#*.}
 export global_base_domain_no_dots=$(echo ${global_base_domain} | tr '.' '-')
 gcloud dns record-sets create vault.${global_base_domain} --rrdatas=${vault_ip} --type=A -z ${global_base_domain_no_dots}
 
+# allow health checks
+for cluster in ${cluster1} ${cluster2} ${cluster3}; do
+  export network=$(oc --context ${cluster} get infrastructure cluster -o jsonpath='{.status.infrastructureName}')-network
+  export infrastructure=$(oc --context ${cluster} get infrastructure cluster -o jsonpath='{.status.infrastructureName}')
+  gcloud compute firewall-rules create ${infrastructure}-fw-allow-health-checks --network=${network} --action=ALLOW --direction=INGRESS --source-ranges=35.191.0.0/16,130.211.0.0/22 --target-tags=${infrastructure}-worker --rules=tcp
+done
+
 # create health check 
 gcloud compute health-checks create https vault-health-check --host vault.${global_base_domain} --request-path /v1/sys/health --use-serving-port --global
 
@@ -155,7 +162,7 @@ for cluster in ${cluster1} ${cluster2} ${cluster3}; do
   infrastructureName=$(oc --context ${cluster} get infrastructure cluster -o jsonpath='{.status.infrastructureName}')
   network=$(oc --context ${cluster} get infrastructure cluster -o jsonpath='{.status.infrastructureName}')-network
   subnet=$(oc --context ${cluster} get infrastructure cluster -o jsonpath='{.status.infrastructureName}')-worker-subnet
-  port=$(oc --context cluster1 get service router-default -n openshift-ingress -o json | jq -r '.spec.ports[] | select( .name=="https") | .nodePort')
+  port=$(oc --context ${cluster} get service router-default -n openshift-ingress -o json | jq -r '.spec.ports[] | select( .name=="https") | .nodePort')
   for zone in $(gcloud --format json compute zones list --filter region=${region} | jq -r .[].name); do
     gcloud compute network-endpoint-groups create vault-${zone} --network=${network} --subnet=${subnet} --default-port=443  --zone=${zone}
     for instance in $(gcloud --format json compute instances list --zones ${zone} --filter="labels.kubernetes-io-cluster-${infrastructureName}=owned" | jq -r .[].name); do
@@ -169,8 +176,6 @@ done
 gcloud compute target-tcp-proxies create vault-target-tcp-proxy --backend-service vault-backend-service
 
 # create forwarding rule
-
-gcloud compute forwarding-rules create vault-forwarding-rule --global-backend-service --ip-protocol tcp  --global-address --address=vault-global-ipv4 --load-balancing-scheme external --ports 443 --global --backend-service vault-backend-service
 
 gcloud compute forwarding-rules create vault-forwarding-rule --ip-protocol tcp --address vault-global-ipv4 --load-balancing-scheme external --ports 443 --global --target-tcp-proxy vault-target-tcp-proxy --global-address
 ```

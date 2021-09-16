@@ -17,20 +17,35 @@ This tutorial is comprised of the following steps:
 
 2. [establishing trust](./establishing-trust.md) between the clusters
 
+    This step requires having previously executed _cluster preparation_ step.
+
     The result of this step is the following:
     ![estabilishing trust](./media/Vault.png)
 
 3. [deploying cockroachdb](./cockroachdb.md)
+
+    This step requires having previously executed _establishing trust_ step.
 
     The result of this step is the following:
     ![deploying cockroachdb](./media/CRDB.png)
 
 4. [deploying keycloak](./keycloak.md)
 
+    This step requires having previously executed _deploying cockroachdb_ step.
+
     The result of this step is the following:
     ![deploying keycloak](./media/keycloak.png)
 
 5. [deploying kafka](./kafka.md)
 
+    This step requires having previously executed _establishing trust_ step.
+
     The result of this step is the following:
     ![deploying kafka](./media/kafka.png)
+
+6. [deploying YugabyteDB](./yugabyte.md)
+
+    This step requires having previously executed _establishing trust_ step.
+
+    The result of this step is the following:
+    ![deploying yugabyteDB](./media/yugabyte.png)

@@ -412,8 +412,8 @@ spec:
             --undefok=num_cpus,enable_ysql
             --placement_cloud={{ $root.Values.infrastructure }}
             --placement_region=${region}
-            --placement_zone=${zone}
-            {{- /*- --placement_zone=${region}-${zone} */}}           
+            --placement_zone=myzone
+            {{- /*- --placement_zone=${zone} */}}           
           {{- if $root.Values.tls.enabled }}
             --certs_dir=/opt/certs/yugabyte
             --use_node_to_node_encryption=true
