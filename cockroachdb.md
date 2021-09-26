@@ -50,24 +50,6 @@ oc --context ${cluster1} exec $tools_pod -c tools -n cockroachdb -- /cockroach/c
 oc --context ${cluster1} exec $tools_pod -c tools -n cockroachdb -- /cockroach/cockroach sql --execute='GRANT admin TO dba WITH ADMIN OPTION;' --certs-dir=/crdb-certs --host cockroachdb-0.cluster1.cockroachdb.cockroachdb.svc.clusterset.local
 ```
 
-### Create global dns entry -- gcp only
-
-```shell
-IPs=""
-for cluster in ${cluster1} ${cluster2} ${cluster3}; do
-  IP=$(oc --context ${cluster} get svc router-default -n openshift-ingress -o jsonpath='{.status.loadBalancer.ingress[].ip}')
-  echo $IP
-  IPs+=${IP},
-done
-IPs="${IPs%,}"
-export cluster_base_domain=$(oc --context ${control_cluster} get dns cluster -o jsonpath='{.spec.baseDomain}')
-export base_domain=${cluster_base_domain#*.}
-export global_base_domain=global.${cluster_base_domain#*.}
-export global_base_domain_no_dots=$(echo ${global_base_domain} | tr '.' '-')
-gcloud dns record-sets delete cockroachdb.global.demo.gcp.red-chesterfield.com --type=A --zone=${global_base_domain_no_dots}
-gcloud dns record-sets create cockroachdb.global.demo.gcp.red-chesterfield.com --rrdatas=${IPs} --type=A --ttl=60 --zone=${global_base_domain_no_dots}
-```
-
 ### Connecting to the CRDB ui
 
 ```shell

@@ -50,24 +50,6 @@ for context in ${cluster1} ${cluster2} ${cluster3}; do
 done
 ```
 
-if on gcp, define the global endpoint
-
-```shell
-IPs=""
-for cluster in ${cluster1} ${cluster2} ${cluster3}; do
-  IP=$(oc --context ${cluster} get svc router-default -n openshift-ingress -o jsonpath='{.status.loadBalancer.ingress[].ip}')
-  echo $IP
-  IPs+=${IP},
-done
-IPs="${IPs%,}"
-export cluster_base_domain=$(oc --context ${control_cluster} get dns cluster -o jsonpath='{.spec.baseDomain}')
-export base_domain=${cluster_base_domain#*.}
-export global_base_domain=global.${cluster_base_domain#*.}
-export global_base_domain_no_dots=$(echo ${global_base_domain} | tr '.' '-')
-gcloud dns record-sets delete akhq.global.demo.gcp.red-chesterfield.com --type=A --zone=${global_base_domain_no_dots}
-gcloud dns record-sets create akhq.global.demo.gcp.red-chesterfield.com --rrdatas=${IPs} --type=A --ttl=60 --zone=${global_base_domain_no_dots}
-```
-
 Enable monitoring
 
 deploy the operator

@@ -110,24 +110,6 @@ oc --context ${control_cluster} create secret generic vault-init -n vault --from
 oc --context ${cluster1} exec vault-0 -n vault -- sh -c "VAULT_TOKEN=${HA_VAULT_TOKEN} vault operator raft list-peers -address https://vault-0.cluster1.vault-internal.vault.svc.clusterset.local:8200 -ca-path /etc/vault-tls/ca.crt"
 ```
 
-### Create global dns entry -- gcp only
-
-```shell
-IPs=""
-for cluster in ${cluster1} ${cluster2} ${cluster3}; do
-  IP=$(oc --context ${cluster} get svc router-default -n openshift-ingress -o jsonpath='{.status.loadBalancer.ingress[].ip}')
-  echo $IP
-  IPs+=${IP},
-done
-IPs="${IPs%,}"
-export cluster_base_domain=$(oc --context ${control_cluster} get dns cluster -o jsonpath='{.spec.baseDomain}')
-export base_domain=${cluster_base_domain#*.}
-export global_base_domain=global.${cluster_base_domain#*.}
-export global_base_domain_no_dots=$(echo ${global_base_domain} | tr '.' '-')
-gcloud dns record-sets delete vault.global.demo.gcp.red-chesterfield.com --type=A --zone=${global_base_domain_no_dots}
-gcloud dns record-sets create vault.global.demo.gcp.red-chesterfield.com --rrdatas=${IPs} --type=A --ttl=60 --zone=${global_base_domain_no_dots}
-```
-
 ### Testing vault external connectivity
 
 ```shell
