@@ -6,5 +6,5 @@ metadata:
   labels:
     app: grafana
 spec:
-  name: etcd.json
+  #name: etcd.json
   json: {{ .Files.Get "dashboards/openshift-monitoring/etcd.json" | toPrettyJson }}

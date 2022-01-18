@@ -25,7 +25,7 @@ global:
 
 injector:
   # True if you want to enable vault agent injection.
-  enabled: true
+  enabled: false
 
   # If true, will enable a node exporter metrics endpoint at /metrics.
   metrics:

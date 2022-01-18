@@ -6,7 +6,7 @@ metadata:
   labels:
     app: grafana
 spec:
-  name: yugabyte.json
+  #name: yugabyte.json
   json: {{ .Files.Get "dashboards/yugabyte/yugabyte.json" | toPrettyJson }}
   plugins:
     - name: "grafana-piechart-panel"

@@ -233,6 +233,17 @@ aws --region ${region1} ec2 create-route --destination-cidr-block ${cluster3_nod
 aws --region ${region3} ec2 create-route --destination-cidr-block ${cluster1_node_cidr} --vpc-peering-connection-id ${peering_connection1_3} --route-table-id ${vpc3_main_route_table_id}
 aws --region ${region2} ec2 create-route --destination-cidr-block ${cluster3_node_cidr} --vpc-peering-connection-id ${peering_connection2_3} --route-table-id ${vpc2_main_route_table_id}
 aws --region ${region3} ec2 create-route --destination-cidr-block ${cluster2_node_cidr} --vpc-peering-connection-id ${peering_connection2_3} --route-table-id ${vpc3_main_route_table_id}
+
+# create security groups
+
+export worker_sg1=$(aws --region ${region1} ec2 describe-security-groups --filters=Name=tag:Name,Values=${infrastructure_id1}-worker-sg | jq -r .SecurityGroups[0].GroupId)
+export worker_sg2=$(aws --region ${region2} ec2 describe-security-groups --filters=Name=tag:Name,Values=${infrastructure_id2}-worker-sg | jq -r .SecurityGroups[0].GroupId)
+export worker_sg3=$(aws --region ${region3} ec2 describe-security-groups --filters=Name=tag:Name,Values=${infrastructure_id3}-worker-sg | jq -r .SecurityGroups[0].GroupId)
+
+aws --region ${region1} ec2 authorize-security-group-ingress --group-id ${worker_sg1} --protocol udp --port 4500 --cidr 0.0.0.0/0
+aws --region ${region2} ec2 authorize-security-group-ingress --group-id ${worker_sg2} --protocol udp --port 4500 --cidr 0.0.0.0/0
+aws --region ${region3} ec2 authorize-security-group-ingress --group-id ${worker_sg3} --protocol udp --port 4500 --cidr 0.0.0.0/0
+
 ```
 
 ### Peer VPCs for Google

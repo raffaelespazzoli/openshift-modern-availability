@@ -6,5 +6,5 @@ metadata:
   labels:
     app: grafana
 spec:
-  name: node-cluster-rsrc-use.json
+  #name: node-cluster-rsrc-use.json
   json: {{ .Files.Get "dashboards/openshift-monitoring/node-cluster-rsrc-use.json" | toPrettyJson }}

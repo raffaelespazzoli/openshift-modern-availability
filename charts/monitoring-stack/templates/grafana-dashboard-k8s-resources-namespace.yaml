@@ -6,5 +6,5 @@ metadata:
   labels:
     app: grafana
 spec:
-  name: k8s-resources-namespace.json
+  #name: k8s-resources-namespace.json
   json: {{ .Files.Get "dashboards/openshift-monitoring/k8s-resources-namespace.json" | toPrettyJson }}

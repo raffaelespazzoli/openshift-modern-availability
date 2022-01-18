@@ -20,3 +20,6 @@ cluster3-metadata-azure.json
 cluster1-metadata-gcp.json
 cluster2-metadata-gcp.json
 cluster3-metadata-gcp.json
+cluster1-metadata-aws.json
+cluster2-metadata-aws.json
+cluster3-metadata-aws.json
