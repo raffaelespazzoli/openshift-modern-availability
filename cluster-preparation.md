@@ -244,6 +244,10 @@ aws --region ${region1} ec2 authorize-security-group-ingress --group-id ${worker
 aws --region ${region2} ec2 authorize-security-group-ingress --group-id ${worker_sg2} --protocol udp --port 4500 --cidr 0.0.0.0/0
 aws --region ${region3} ec2 authorize-security-group-ingress --group-id ${worker_sg3} --protocol udp --port 4500 --cidr 0.0.0.0/0
 
+aws --region ${region1} ec2 authorize-security-group-ingress --group-id ${worker_sg1} --protocol udp --port 4800 --cidr 0.0.0.0/0
+aws --region ${region2} ec2 authorize-security-group-ingress --group-id ${worker_sg2} --protocol udp --port 4800 --cidr 0.0.0.0/0
+aws --region ${region3} ec2 authorize-security-group-ingress --group-id ${worker_sg3} --protocol udp --port 4800 --cidr 0.0.0.0/0
+
 ```
 
 ### Peer VPCs for Google

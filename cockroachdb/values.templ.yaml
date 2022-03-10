@@ -11,7 +11,7 @@ global_base_domain: ${global_base_domain}
 cockroachdb:
   image:
     repository: cockroachdb/cockroach
-    tag: "v21.1.7"
+    tag: "v21.1.15"
     # repository: cockroachdb/cockroach-unstable
     # tag: "v21.1.0-rc.2"    
   storage:

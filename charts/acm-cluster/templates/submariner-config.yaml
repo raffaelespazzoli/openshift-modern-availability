@@ -2,10 +2,17 @@
 apiVersion: submarineraddon.open-cluster-management.io/v1alpha1
 kind: SubmarinerConfig
 metadata:
-  name: subconfig
+  name: submariner
 spec:
   credentialsSecret:
      name: {{ .Release.Name }}-credentials
-  subscriptionConfig:
-    startingCSV: submariner.v0.9.0    
-{{ end }}
+  cableDriver: vxlan
+  NATTEnable: false
+
+  gatewayConfig:
+  {{ if eq .Values.infrastructure "aws"}}
+    aws:
+      instanceType: {{ .Values.submariner.aws.machineType }}
+  {{ end }}      
+    gateways: 1
+{{ end }}  

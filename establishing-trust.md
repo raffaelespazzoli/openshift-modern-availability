@@ -38,7 +38,7 @@ az keyvault key create --kty RSA --size 2048 --ops unwrapKey verify wrapKey --va
 
 ```shell
 oc --context ${control_cluster} new-project cert-manager
-oc --context ${control_cluster} apply --validate=false -f https://github.com/jetstack/cert-manager/releases/download/v1.5.0/cert-manager.yaml
+oc --context ${control_cluster} apply --validate=false -f https://github.com/jetstack/cert-manager/releases/download/v1.7.1/cert-manager.yaml
 oc --context ${control_cluster} new-project vault
 oc --context ${control_cluster} apply -f ./vault/vault-control-cluster-certs.yaml -n vault
 ```
@@ -50,7 +50,7 @@ helm repo add stakater https://stakater.github.io/stakater-charts
 helm repo update
 for context in ${cluster1} ${cluster2} ${cluster3}; do
   oc --context ${context} new-project cert-manager
-  oc --context ${context} apply --validate=false -f https://github.com/jetstack/cert-manager/releases/download/v1.5.0/cert-manager.yaml
+  oc --context ${context} apply --validate=false -f https://github.com/jetstack/cert-manager/releases/download/v1.7.1/cert-manager.yaml
   oc --context ${context} new-project cert-utils-operator
   oc --context ${context} apply  -f ./cert-utils-operator/operator.yaml -n cert-utils-operator
   oc new-project reloader

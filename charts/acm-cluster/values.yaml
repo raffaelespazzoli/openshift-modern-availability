@@ -63,7 +63,7 @@ install_config:
 
 submariner:
   enableOperator: true
-  enableGateways: true
+  enableGateways: false
   aws:
     machineType: m5n.xlarge
   gcp:

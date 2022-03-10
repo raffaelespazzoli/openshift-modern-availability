@@ -22,4 +22,5 @@ node_cidr: ${node_cidr}
 clusterReleaseImage: ${cluster_release_image}
 infrastructure: ${infrastructure}
 submariner:
-  enableOperator: false
+  enableOperator: true
+  enableGateways: false
