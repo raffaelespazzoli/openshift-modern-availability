@@ -51,7 +51,7 @@ install_config:
     - cidr: ""
       hostPrefix: 23
     #machineCIDR: ${node_cidr}
-    networkType: OpenShiftSDN
+    networkType: OVNKubernetes
     serviceNetwork:
       # added by template
     - ""

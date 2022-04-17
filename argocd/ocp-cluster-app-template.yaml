@@ -1,0 +1,55 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: ${cluster}
+  namespace: openshift-gitops
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/raffaelespazzoli/openshift-modern-availability.git
+    targetRevision: HEAD
+    path: charts/acm-cluster
+    helm:
+      values: | 
+        region: ${region}
+        baseDomain: ${base_domain}
+        sshKey: |
+        ${ssh_key}  
+        sshPubKey: ${ssh_pub_key}
+        aws:
+          id: ${aws_id}
+          key: ${aws_key}
+        azr:
+          baseDomainResourceGroupName: ${base_domain_resource_group_name}
+          sa_json: 
+        ${azr_sa_json}
+        gcp:
+          sa_json: |
+        ${gcp_sa_json}
+          projectID: ${gcp_project_id}
+        docker_pull_secret:
+          ${pull_secret}
+        cluster_network_cidr: ${network_cidr}
+        service_network_cidr: ${service_cidr}
+        node_cidr: ${node_cidr}
+        clusterReleaseImage: ${cluster_release_image}
+        infrastructure: ${infrastructure}
+        submariner:
+          enableOperator: true
+          enableGateways: false
+        argocd:
+          enable: true  
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: ${cluster}
+  syncPolicy:
+    automated: 
+      prune: true
+      selfHeal: true
+    syncOptions:
+    - CreateNamespace=true
+    retry:
+      backoff:
+        duration: 5s # the amount to back off. Default unit is seconds, but could also be a duration (e.g. "2m", "1h")
+        factor: 2 # a factor to multiply the base duration after each failed retry
+        maxDuration: 10m # the maximum amount of time allowed for the backoff strategy
