@@ -1,0 +1,95 @@
+apiVersion: redhatcop.redhat.io/v1alpha1
+kind: Patch
+metadata:
+  name: config-patches
+  namespace: openshift-config
+spec:
+  serviceAccountRef:
+    name: default
+  patches:
+    openshift-config-argocd-app-patch:
+      targetObjectRef:
+        apiVersion: argoproj.io/v1alpha1
+        kind: Application
+        namespace: openshift-gitops
+        name: openshift-config
+      sourceObjectRefs:
+      - apiVersion: config.openshift.io/v1
+        kind: DNS
+        name: cluster  
+      patchTemplate: |
+        spec:
+          source:
+            helm:
+              values: |
+                base_domain: {{ "{{" }} (index . 1).spec.baseDomain {{ "}}" }}
+      patchType: application/merge-patch+json
+    ingress-operator-config:
+      targetObjectRef:
+        apiVersion: operator.openshift.io/v1
+        kind: IngressController
+        name: default
+        namespace: openshift-ingress-operator
+      patchTemplate: |
+        spec:
+          defaultCertificate:
+            name: lets-encrypt-certs-tls
+          routeAdmission:
+            wildcardPolicy: WildcardsAllowed              
+      patchType: application/merge-patch+json
+    letsencrypt-certs:
+      targetObjectRef:
+        apiVersion: v1
+        kind: Secret
+        name: lets-encrypt-certs-tls
+        namespace: openshift-ingress
+      patchTemplate: |
+        data:
+          cert: {{ "{{" }} (index (index . 0).data "tls.crt") {{ "}}" }}
+          key: {{ "{{" }} (index (index . 0).data "tls.key") {{ "}}" }}
+      patchType: application/merge-patch+json
+    letsencrypt-issuer:
+      targetObjectRef:
+        apiVersion: cert-manager.io/v1
+        kind: ClusterIssuer
+        name: letsencrypt-issuer
+      sourceObjectRefs:
+      - apiVersion: config.openshift.io/v1
+        kind: DNS
+        name: cluster
+      - apiVersion: config.openshift.io/v1
+        kind: Infrastructure
+        name: cluster
+      - apiVersion: v1
+        kind: Secret
+        namespace: cert-manager
+        name: cert-manager-dns-credentials                        
+      patchTemplate: | 
+        spec:
+          acme:
+            solvers:
+            - dns01:
+                route53:
+                  accessKeyID: {{ "{{" }} (index . 3).data.aws_access_key_id | b64dec {{ "}}" }}
+                  secretAccessKeySecretRef:
+                    name: cert-manager-dns-credentials
+                    key: aws_secret_access_key
+                  region: {{ "{{" }} (index . 2).status.platformStatus.aws.region {{ "}}" }}
+                  hostedZoneID: {{ "{{" }} (index . 1).spec.publicZone.id {{ "}}" }}
+      patchType: application/merge-patch+json
+    managedclusterinfo-argocd-ignore:
+      targetObjectRef:
+        apiVersion: internal.open-cluster-management.io/v1beta1
+        kind: ManagedClusterInfo                       
+      patchTemplate: | 
+        metadata:
+          annotations:
+            {{ "{{-" }} if (not (has (dict "argocd.argoproj.io/compare-options" "IgnoreExtraneous") (index . 0).metadata.annotations)) {{ "}}" }}      
+            {{ "{{" }} append (index . 0).metadata.annotations (dict "argocd.argoproj.io/compare-options" "IgnoreExtraneous") | toYaml | indent 4 {{ "}}" }}
+            {{ "{{-" }} else {{ "}}" }}
+            {{ "{{" }} (index . 0).metadata.annotations | toYaml | indent .metadata.annotations {{ "}}" }}
+            {{ "{{-" }} end {{ "}}" }}
+      patchType: application/merge-patch+json     
+
+
+             

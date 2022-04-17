@@ -19,7 +19,7 @@ oc apply -f ./argocd/argo-root-application.yaml
 There is probably a better way to automate this step
 
 ```shell
-export ssh_key=$(cat ~/.ssh/ocp_rsa | sed 's/^/  /')
+export ssh_key=$(cat ~/.ssh/ocp_rsa | sed 's/^/          /')
 export ssh_pub_key=$(cat ~/.ssh/ocp_rsa.pub)
 export pull_secret=$(cat ~/git/openshift-enablement-exam/4.0/pullsecret.json)
 export base_domain=$(oc get dns cluster -o jsonpath='{.spec.baseDomain}')
@@ -32,11 +32,11 @@ export infrastructure=$(oc get infrastructure cluster -o jsonpath='{.spec.platfo
 export aws_id=$(cat ~/.aws/credentials | grep aws_access_key_id | cut -d'=' -f 2)
 export aws_key=$(cat ~/.aws/credentials | grep aws_secret_access_key | cut -d'=' -f 2)
 #gcp
-export gcp_sa_json=$(cat ~/.gcp/osServiceAccount.json | sed 's/^/    /')
+export gcp_sa_json=$(cat ~/.gcp/osServiceAccount.json | sed 's/^/            /')
 export gcp_project_id=$(cat ~/.gcp/osServiceAccount.json | jq -r .project_id)
 #azr
 export base_domain_resource_group_name=$(oc get DNS cluster -o jsonpath='{.spec.publicZone.id}' | cut -f 5 -d "/" -)
-export azr_sa_json=$(cat ~/.azure/osServicePrincipal.json | sed 's/^/    /')
+export azr_sa_json=$(cat ~/.azure/osServicePrincipal.json)
 
 case ${infrastructure} in
   aws)
@@ -53,7 +53,7 @@ export network_cidr="10.128.0.0/14"
 export service_cidr="172.30.0.0/16"
 export node_cidr="10.0.0.0/16"
 
-cluster=cluster1 envsubst < ocp-cluster-app-template.yaml | oc apply -f -
+cluster=cluster1 envsubst < ./argocd/ocp-cluster-app-template.yaml | oc apply -f -
 
 case ${infrastructure} in
   aws)
