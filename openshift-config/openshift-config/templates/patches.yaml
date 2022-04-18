@@ -87,7 +87,7 @@ spec:
             {{ "{{-" }} if not (index . 0).metadata.annotations {{ "}}" }}
             {{ "{{" }} (dict "argocd.argoproj.io/compare-options" "IgnoreExtraneous") | toYaml | indent 4 {{ "}}" }}
             {{ "{{-" }} else {{ "}}" }}
-            {{ "{{-" }} if (not (hasKey "argocd.argoproj.io/compare-options" (index . 0).metadata.annotations)) {{ "}}" }}      
+            {{ "{{-" }} if (not (hasKey (index . 0).metadata.annotations "argocd.argoproj.io/compare-options") ) {{ "}}" }}      
             {{ "{{" }} set (index . 0).metadata.annotations "argocd.argoproj.io/compare-options" "IgnoreExtraneous" | toYaml | indent 4 {{ "}}" }}
             {{ "{{-" }} else {{ "}}" }}
             {{ "{{" }} (index . 0).metadata.annotations | toYaml | indent 4 {{ "}}" }}
