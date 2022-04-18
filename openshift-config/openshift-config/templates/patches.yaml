@@ -84,10 +84,14 @@ spec:
       patchTemplate: | 
         metadata:
           annotations:
+            {{ "{{-" }} if (eq (len (index . 0).metadata.annotations) 0) {{ "}}" }}
+            {{ "{{" }} (dict "argocd.argoproj.io/compare-options" "IgnoreExtraneous") | toYaml | indent {{ "}}" }}
+            {{ "{{-" }} else {{ "}}" }}
             {{ "{{-" }} if (not (has (dict "argocd.argoproj.io/compare-options" "IgnoreExtraneous") (index . 0).metadata.annotations)) {{ "}}" }}      
             {{ "{{" }} append (index . 0).metadata.annotations (dict "argocd.argoproj.io/compare-options" "IgnoreExtraneous") | toYaml | indent 4 {{ "}}" }}
             {{ "{{-" }} else {{ "}}" }}
             {{ "{{" }} (index . 0).metadata.annotations | toYaml | indent 4 {{ "}}" }}
+            {{ "{{-" }} end {{ "}}" }}
             {{ "{{-" }} end {{ "}}" }}
       patchType: application/merge-patch+json     
 
