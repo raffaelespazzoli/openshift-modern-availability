@@ -84,7 +84,7 @@ spec:
       patchTemplate: | 
         metadata:
           annotations:
-            {{ "{{-" }} if (eq (len (index . 0).metadata.annotations) 0) {{ "}}" }}
+            {{ "{{-" }} if not (index . 0).metadata.annotations {{ "}}" }}
             {{ "{{" }} (dict "argocd.argoproj.io/compare-options" "IgnoreExtraneous") | toYaml | indent {{ "}}" }}
             {{ "{{-" }} else {{ "}}" }}
             {{ "{{-" }} if (not (has (dict "argocd.argoproj.io/compare-options" "IgnoreExtraneous") (index . 0).metadata.annotations)) {{ "}}" }}      
